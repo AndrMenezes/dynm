@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import copy
 from scipy import stats
-from packages.dlmtf.src.utils import tidy_parameters
+from src.utils import tidy_parameters
 from scipy.linalg import block_diag
 
 

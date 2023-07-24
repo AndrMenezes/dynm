@@ -1,12 +1,12 @@
 """Utils functions."""
 import numpy as np
 import pandas as pd
-from packages.dlmtf.src.algebra import _calc_predictive_mean_and_var
-from packages.dlmtf.src.dlm_autoregressive import AutoRegressive
-from packages.dlmtf.src.dlm_transfer_function import TransferFunction
-from packages.dlmtf.src.dlm import DLM
-from packages.dlmtf.src.dlm_nullmodel import NullModel
-from packages.dlmtf.src.utils import tidy_parameters
+from src.algebra import _calc_predictive_mean_and_var
+from src.dlm_autoregressive import AutoRegressive
+from src.dlm_transfer_function import TransferFunction
+from src.dlm import DLM
+from src.dlm_nullmodel import NullModel
+from src.utils import tidy_parameters
 from scipy import stats
 from scipy.linalg import block_diag
 

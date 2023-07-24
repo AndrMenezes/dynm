@@ -1,8 +1,8 @@
 """Utils functions."""
 import numpy as np
 import copy
-from packages.dlmtf.src.algebra import _calc_predictive_mean_and_var, _calc_aR
-from packages.dlmtf.src.algebra import _build_Gnonlinear, _build_W
+from src.algebra import _calc_predictive_mean_and_var, _calc_aR
+from src.algebra import _build_Gnonlinear, _build_W
 
 
 class TransferFunction():

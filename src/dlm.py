@@ -1,6 +1,6 @@
 """Dynamic Linear Model with transfer function."""
 import numpy as np
-from packages.dlmtf.src.algebra import _build_W
+from src.algebra import _build_W
 from scipy.linalg import block_diag
 
 
