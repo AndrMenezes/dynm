@@ -86,7 +86,7 @@ class Analysis():
             self.s = 1
             self.estimate_V = True
         else:
-            self.s = np.sqrt(V)
+            self.s = V
             self.estimate_V = False
 
         if self.arm.order > 0:

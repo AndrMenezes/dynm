@@ -29,20 +29,19 @@ for t in range(1, nobs):
     # Evolution
     xi_1[t] = true_phi_1 * xi_1[t - 1] + true_phi_2 * xi_2[t - 1] + nu[t]
     xi_2[t] = xi_1[t-1]
+
     # Observation
     y[t] = xi_1[t]
 
 # Estimation
 m0 = np.array([0, 0, 1, 0])
 C0 = np.identity(4)
-C0 = np.fill_diagonal(C0, val=[9, 9, 9, 9])
+np.fill_diagonal(C0, val=[9, 9, 9, 9])
 W = np.identity(4)
-W = np.fill_diagonal(W, val=[sd_y**2, 0, 0, 0])
+np.fill_diagonal(W, val=[sd_y**2, 0, 0, 0])
 
 model_dict = {
-    'arm': {'m0': m0, 'C0': C0, 'order': 2,
-            'del': np.array([.995, .995, .995, .995]),
-            "W": W}
+    'arm': {'m0': m0, 'C0': C0, 'order': 2, "W": W}
 }
 
 # Fit

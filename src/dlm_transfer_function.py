@@ -39,7 +39,7 @@ class TransferFunction():
             self.s = 1
             self.discount_factors = discount_factors
         else:
-            self.s = np.sqrt(V)
+            self.s = V
             self.estimate_V = False
 
         self.discount_factors = discount_factors
