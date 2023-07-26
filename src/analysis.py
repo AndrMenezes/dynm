@@ -138,19 +138,20 @@ class Analysis():
         dict_1step_forecast = {'t': [], 'y': [], 'f': [], 'q': [], 's': []}
         dict_state_params = {'m': [], 'C': []}
         Xt = {'dlm': [], 'tfm': []}
+        copy_X = X.copy()
 
         if X.get('dlm') is None:
             x = np.array([None]*(nobs+1)).reshape(-1, 1)
-            X['dlm'] = x
+            copy_X['dlm'] = x
 
         if X.get('tfm') is None:
             z = np.array([None]*(nobs+1)).reshape(-1, 1)
-            X['tfm'] = z
+            copy_X['tfm'] = z
 
         for t in range(nobs):
             # Predictive distribution moments
-            Xt['dlm'] = X['dlm'][t, :]
-            Xt['tfm'] = X['tfm'][t, :]
+            Xt['dlm'] = copy_X['dlm'][t, :]
+            Xt['tfm'] = copy_X['tfm'][t, :]
             f, q = self._forecast(X=Xt)
 
             # Append results
@@ -233,18 +234,63 @@ class Analysis():
         F_dlm = self.dlm._update_F(x=X.get('dlm'))
         F = np.vstack((F_dlm, self.arm.F, self.tfm.F))
 
-        a, R = self._update_prior(X=X)
+        a, R = self._calc_aR(X=X)
         f, q = _calc_predictive_mean_and_var(F=F, a=a, R=R, s=self.v)
         return f, q
 
-    def _update_prior(self, X: dict):
+    def _k_steps_a_head_forecast(self, k: int, X: dict = {}):
+        ak = self.m
+        Rk = self.C
+
+        # Organize transfer function values
+        Xt = {'dlm': [], 'tfm': []}
+        if X.get('dlm') is None:
+            x = np.array([None]*(k+1)).reshape(-1, 1)
+            X['dlm'] = x
+
+        if X.get('tfm') is None:
+            z = np.array([None]*(k+1)).reshape(-1, 1)
+            X['tfm'] = z
+
+        # K steps-a-head forecast
+        f = np.ones(k)
+        q = np.ones(k)
+        for t in range(k):
+            F_dlm = self.dlm._update_F(x=X.get('dlm'))
+            F = np.vstack((F_dlm, self.arm.F, self.tfm.F))
+
+            Xt['dlm'] = X['dlm'][t, :]
+            Xt['tfm'] = X['tfm'][t, :]
+
+            # Predictive distribution moments
+            G = self._build_G(X=Xt)
+            W = self._build_W(G=G)
+
+            ak = G @ ak
+            Rk = G @ Rk @ G.T + W
+
+            # Predictive
+            f[t], q[t] = _calc_predictive_mean_and_var(
+                F=F, a=ak, R=Rk, s=self.v)
+        return f, q
+
+    def _build_G(self, X: dict):
         G_dlm = self.dlm.G
         G_arm = self.arm._build_G()
         G_tfm = self.tfm._build_G(x=X.get('tfm'))
 
-        h_dlm = np.zeros([G_dlm.shape[0], 1])
-        h_arm = self.arm._build_h(G=G_arm)
-        h_tfm = self.tfm._build_h(G=G_tfm)
+        G = block_diag(G_dlm, G_arm, G_tfm)
+
+        return G
+
+    def _build_W(self, G: np.array):
+        grid_dlm_x, grid_dlm_y = self.grid_index_dict.get('dlm')
+        grid_arm_x, grid_arm_y = self.grid_index_dict.get('arm')
+        grid_tfm_x, grid_tfm_y = self.grid_index_dict.get('tfm')
+
+        G_dlm = G[grid_dlm_x, grid_dlm_y].T
+        G_arm = G[grid_arm_x, grid_arm_y].T
+        G_tfm = G[grid_tfm_x, grid_tfm_y].T
 
         P_dlm = self.dlm._build_P(G=G_dlm)
         P_arm = self.arm._build_P(G=G_arm)
@@ -254,9 +300,31 @@ class Analysis():
         W_arm = self.arm._build_W(P=P_arm)
         W_tfm = self.tfm._build_W(P=P_tfm)
 
-        h = np.vstack([h_dlm, h_arm, h_tfm])
-        G = block_diag(G_dlm, G_arm, G_tfm)
         W = block_diag(W_dlm, W_arm, W_tfm)
+
+        return W
+
+    def _build_h(self, G: np.array):
+        grid_dlm_x, grid_dlm_y = self.grid_index_dict.get('dlm')
+        grid_arm_x, grid_arm_y = self.grid_index_dict.get('arm')
+        grid_tfm_x, grid_tfm_y = self.grid_index_dict.get('tfm')
+
+        G_dlm = G[grid_dlm_x, grid_dlm_y].T
+        G_arm = G[grid_arm_x, grid_arm_y].T
+        G_tfm = G[grid_tfm_x, grid_tfm_y].T
+
+        h_dlm = np.zeros([G_dlm.shape[0], 1])
+        h_arm = self.arm._build_h(G=G_arm)
+        h_tfm = self.tfm._build_h(G=G_tfm)
+
+        h = np.vstack([h_dlm, h_arm, h_tfm])
+
+        return h
+
+    def _calc_aR(self, X: dict):
+        G = self._build_G(X=X)
+        W = self._build_W(G=G)
+        h = self._build_h(G=G)
 
         a = G @ self.m + h
         P = G @ self.C @ G.T
@@ -290,7 +358,7 @@ class Analysis():
         else:
             self.v = self.s
 
-        a, R = self._update_prior(X=X)
+        a, R = self._calc_aR(X=X)
         f, q = _calc_predictive_mean_and_var(F=self.F, a=a, R=R, s=self.v)
 
         A = (R @ self.F) / q
