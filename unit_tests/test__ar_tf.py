@@ -100,3 +100,34 @@ class TestAnalysisARTF(unittest.TestCase):
         self.assertTrue(np.abs(m[6] - true_lambda_1) < .1)
         self.assertTrue(np.abs(m[7] - true_lambda_2) < .1)
         self.assertTrue(np.abs(m[8] - true_gamma) < .1)
+
+    def test__k_steps_a_head_forecast(self):
+        """Test k steps a head performance."""
+        model_dict = {
+            'arm': {'m0': arm_m0, 'C0': arm_C0, 'order': 2, "del": arm_del},
+            'tfm': {'m0': tfm_m0, 'C0': tfm_C0, 'order': 2, "del": tfm_del,
+                    "ntfm": 1}
+        }
+
+        # Insample and outsample sets
+        tr__y = y[:450]
+        te__y = y[450:]
+
+        tr__X = {'tfm': x.reshape(-1, 1)[:450]}
+        te__X = {'tfm': x.reshape(-1, 1)[450:]}
+
+        # Fit
+        mod = Analysis(model_dict=model_dict, V=sd_y**2)
+        fit_results = mod.fit(y=tr__y, X=tr__X)
+
+        # Forecasting
+        forecast_results = mod._k_steps_a_head_forecast(k=50, X=te__X)
+        forecast_df = forecast_results.get('filter')
+        parameters_df = forecast_results.get('parameters')
+
+        mape = np.mean(np.abs(forecast_df.f - te__y) / te__y)
+
+        self.assertTrue(mape < 1)
+        self.assertTrue(len(parameters_df) == 450)
+        self.assertTrue(forecast_df.notnull().all().all())
+        self.assertTrue(parameters_df.notnull().all().all())

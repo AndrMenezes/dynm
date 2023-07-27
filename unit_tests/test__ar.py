@@ -84,7 +84,13 @@ class TestAnalysisAR(unittest.TestCase):
         fit_results = mod.fit(y=tr__y)
 
         # Forecasting
-        f, q = mod._k_steps_a_head_forecast(k=50)
-        mape = np.mean(np.abs(f - te__y) / te__y)
+        forecast_results = mod._k_steps_a_head_forecast(k=50)
+        forecast_df = forecast_results.get('filter')
+        parameters_df = forecast_results.get('parameters')
+
+        mape = np.mean(np.abs(forecast_df.f - te__y) / te__y)
 
         self.assertTrue(mape < 1)
+        self.assertTrue(len(parameters_df) == 200)
+        self.assertTrue(forecast_df.notnull().all().all())
+        self.assertTrue(parameters_df.notnull().all().all())
