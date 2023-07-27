@@ -81,6 +81,7 @@ class Analysis():
         # Gamma distribution parameters
         self.n = 1
         self.d = 1
+        self.t = 0
 
         if V is None:
             self.s = 1
@@ -118,59 +119,7 @@ class Analysis():
             'tfm': (grid_tfm_x, grid_tfm_y)
         }
 
-    def fit(self, y: np.ndarray, X: dict = {}, level: float = 0.05):
-        """Short summary.
-
-        Parameters
-        ----------
-        y : np.ndarray
-            Description of parameter `y`.
-        x : np.ndarray
-            Description of parameter `x`.
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
-        """
-        nobs = len(y)
-        dict_1step_forecast = {'t': [], 'y': [], 'f': [], 'q': [], 's': []}
-        dict_state_params = {'m': [], 'C': []}
-        Xt = {'dlm': [], 'tfm': []}
-
-        if X.get('dlm') is None:
-            x = np.array([None]*(nobs+1)).reshape(-1, 1)
-            X['dlm'] = x
-
-        if X.get('tfm') is None:
-            z = np.array([None]*(nobs+1)).reshape(-1, 1)
-            X['tfm'] = z
-
-        for t in range(nobs):
-            # Predictive distribution moments
-            Xt['dlm'] = X['dlm'][t, :]
-            Xt['tfm'] = X['tfm'][t, :]
-            f, q = self._forecast(X=Xt)
-
-            # Append results
-            dict_1step_forecast['t'].append(t)
-            dict_1step_forecast['y'].append(y[t])
-            dict_1step_forecast['f'].append(np.ravel(f)[0])
-            dict_1step_forecast['q'].append(np.ravel(q)[0])
-            dict_1step_forecast['s'].append(np.ravel(self.s)[0])
-
-            # Update model
-            self.update(y=y[t], X=Xt)
-
-            # Dict state params
-            dict_state_params['m'].append(self.m)
-            dict_state_params['C'].append(self.C)
-
-        self.dict_state_params = dict_state_params
-        df_predictive = pd.DataFrame(dict_1step_forecast)
-
-        # Organize the posterior parameters
+        # Get parameters names ---------------------------------------------- #
         level_labels = \
             ['intercept_' + str(i+1) for i in range(self.dlm.ntrend)]
 
@@ -196,11 +145,67 @@ class Analysis():
                             ar__response_labels + ar__decay_labels +
                             tf__response_labels + tf__decay_labels +
                             pulse_labels)
+        self.names_parameters = names_parameters
 
+    def fit(self, y: np.ndarray, X: dict = {}, level: float = 0.05):
+        """Short summary.
+
+        Parameters
+        ----------
+        y : np.ndarray
+            Description of parameter `y`.
+        x : np.ndarray
+            Description of parameter `x`.
+
+        Returns
+        -------
+        type
+            Description of returned object.
+
+        """
+        nobs = len(y)
+        dict_1step_forecast = {'t': [], 'y': [], 'f': [], 'q': [], 's': []}
+        dict_state_params = {'m': [], 'C': []}
+        Xt = {'dlm': [], 'tfm': []}
+        copy_X = X.copy()
+
+        if X.get('dlm') is None:
+            x = np.array([None]*(nobs+1)).reshape(-1, 1)
+            copy_X['dlm'] = x
+
+        if X.get('tfm') is None:
+            z = np.array([None]*(nobs+1)).reshape(-1, 1)
+            copy_X['tfm'] = z
+
+        for t in range(nobs):
+            # Predictive distribution moments
+            Xt['dlm'] = copy_X['dlm'][t, :]
+            Xt['tfm'] = copy_X['tfm'][t, :]
+            f, q = self._forecast(X=Xt)
+
+            # Append results
+            dict_1step_forecast['t'].append(t)
+            dict_1step_forecast['y'].append(y[t])
+            dict_1step_forecast['f'].append(np.ravel(f)[0])
+            dict_1step_forecast['q'].append(np.ravel(q)[0])
+            dict_1step_forecast['s'].append(np.ravel(self.s)[0])
+
+            # Update model
+            self.update(y=y[t], X=Xt)
+
+            # Dict state params
+            dict_state_params['m'].append(self.m)
+            dict_state_params['C'].append(self.C)
+
+        self.dict_state_params = dict_state_params
+        df_predictive = pd.DataFrame(dict_1step_forecast)
+
+        # Organize the posterior parameters
         df_posterior = tidy_parameters(
             dict_parameters=dict_state_params,
             entry_m="m", entry_v="C",
-            names_parameters=names_parameters)
+            names_parameters=self.names_parameters)
+
         n_parms = len(df_posterior["parameter"].unique())
         t_index = np.arange(0, len(df_posterior) / n_parms) + 1
         df_posterior["t"] = np.repeat(t_index, n_parms)
@@ -233,18 +238,110 @@ class Analysis():
         F_dlm = self.dlm._update_F(x=X.get('dlm'))
         F = np.vstack((F_dlm, self.arm.F, self.tfm.F))
 
-        a, R = self._update_prior(X=X)
+        a, R = self._calc_aR(X=X)
         f, q = _calc_predictive_mean_and_var(F=F, a=a, R=R, s=self.v)
         return f, q
 
-    def _update_prior(self, X: dict):
+    def _k_steps_a_head_forecast(self, k: int, X: dict = {},
+                                 level: float = 0.05):
+        ak = self.m
+        Rk = self.C
+
+        dict_state_params = {'a': [], 'R': []}
+        dict_kstep_forecast = {'t': [], 'f': [], 'q': []}
+
+        # Organize transfer function values
+        Xt = {'dlm': [], 'tfm': []}
+        if X.get('dlm') is None:
+            x = np.array([None]*(k+1)).reshape(-1, 1)
+            X['dlm'] = x
+
+        if X.get('tfm') is None:
+            z = np.array([None]*(k+1)).reshape(-1, 1)
+            X['tfm'] = z
+
+        # K steps-a-head forecast
+        for t in range(k):
+            F_dlm = self.dlm._update_F(x=X.get('dlm'))
+            F = np.vstack((F_dlm, self.arm.F, self.tfm.F))
+
+            Xt['dlm'] = X['dlm'][t, :]
+            Xt['tfm'] = X['tfm'][t, :]
+
+            # Predictive distribution moments
+            G = self._build_G(X=Xt)
+            W = self._build_W(G=G)
+
+            ak = G @ ak
+            Rk = G @ Rk @ G.T + W
+
+            # Predictive
+            f, q = _calc_predictive_mean_and_var(
+                F=F, a=ak, R=Rk, s=self.v)
+
+            # Append results
+            dict_kstep_forecast['t'].append(t)
+            dict_kstep_forecast['f'].append(np.ravel(f)[0])
+            dict_kstep_forecast['q'].append(np.ravel(q)[0])
+
+            # Dict state params
+            dict_state_params['a'].append(ak)
+            dict_state_params['R'].append(Rk)
+
+        df_predictive = pd.DataFrame(dict_kstep_forecast)
+
+        # Organize the posterior parameters
+        df_predict_aR = tidy_parameters(
+            dict_parameters=dict_state_params,
+            entry_m="a", entry_v="R",
+            names_parameters=self.names_parameters)
+
+        n_parms = len(df_predict_aR["parameter"].unique())
+        t_index = np.arange(0, len(df_predict_aR) / n_parms) + 1
+        df_predict_aR["t"] = np.repeat(t_index, n_parms)
+        df_predict_aR["t"] = df_predict_aR["t"].astype(int)
+
+        # Compute credible intervals
+        df_predict_aR["ci_lower"] = stats.t.ppf(
+            q=level/2, df=self.t + 1,
+            loc=df_predict_aR["mean"].values,
+            scale=np.sqrt(df_predict_aR["variance"].values) + 10e-300)
+
+        df_predict_aR["ci_upper"] = stats.t.ppf(
+            q=1-level/2, df=self.t + 1,
+            loc=df_predict_aR["mean"].values,
+            scale=np.sqrt(df_predict_aR["variance"].values) + 10e-300)
+
+        df_predictive["ci_lower"] = stats.t.ppf(
+            q=level/2, df=self.t + 1,
+            loc=df_predictive["f"].values,
+            scale=np.sqrt(df_predictive["q"].values) + 10e-300)
+
+        df_predictive["ci_upper"] = stats.t.ppf(
+            q=1-level/2, df=self.t + 1,
+            loc=df_predictive["f"].values,
+            scale=np.sqrt(df_predictive["q"].values) + 10e-300)
+
+        dict_results = {'filter': df_predictive, 'parameters': df_predict_aR}
+        return dict_results
+
+    def _build_G(self, X: dict):
         G_dlm = self.dlm.G
         G_arm = self.arm._build_G()
         G_tfm = self.tfm._build_G(x=X.get('tfm'))
 
-        h_dlm = np.zeros([G_dlm.shape[0], 1])
-        h_arm = self.arm._build_h(G=G_arm)
-        h_tfm = self.tfm._build_h(G=G_tfm)
+        G = block_diag(G_dlm, G_arm, G_tfm)
+
+        return G
+
+    def _build_W(self, G: np.array):
+        grid_dlm_x, grid_dlm_y = self.grid_index_dict.get('dlm')
+        grid_arm_x, grid_arm_y = self.grid_index_dict.get('arm')
+        grid_tfm_x, grid_tfm_y = self.grid_index_dict.get('tfm')
+
+        G_dlm = G[grid_dlm_x, grid_dlm_y].T
+        G_arm = G[grid_arm_x, grid_arm_y].T
+        G_tfm = G[grid_tfm_x, grid_tfm_y].T
 
         P_dlm = self.dlm._build_P(G=G_dlm)
         P_arm = self.arm._build_P(G=G_arm)
@@ -254,9 +351,31 @@ class Analysis():
         W_arm = self.arm._build_W(P=P_arm)
         W_tfm = self.tfm._build_W(P=P_tfm)
 
-        h = np.vstack([h_dlm, h_arm, h_tfm])
-        G = block_diag(G_dlm, G_arm, G_tfm)
         W = block_diag(W_dlm, W_arm, W_tfm)
+
+        return W
+
+    def _build_h(self, G: np.array):
+        grid_dlm_x, grid_dlm_y = self.grid_index_dict.get('dlm')
+        grid_arm_x, grid_arm_y = self.grid_index_dict.get('arm')
+        grid_tfm_x, grid_tfm_y = self.grid_index_dict.get('tfm')
+
+        G_dlm = G[grid_dlm_x, grid_dlm_y].T
+        G_arm = G[grid_arm_x, grid_arm_y].T
+        G_tfm = G[grid_tfm_x, grid_tfm_y].T
+
+        h_dlm = np.zeros([G_dlm.shape[0], 1])
+        h_arm = self.arm._build_h(G=G_arm)
+        h_tfm = self.tfm._build_h(G=G_tfm)
+
+        h = np.vstack([h_dlm, h_arm, h_tfm])
+
+        return h
+
+    def _calc_aR(self, X: dict):
+        G = self._build_G(X=X)
+        W = self._build_W(G=G)
+        h = self._build_h(G=G)
 
         a = G @ self.m + h
         P = G @ self.C @ G.T
@@ -290,7 +409,7 @@ class Analysis():
         else:
             self.v = self.s
 
-        a, R = self._update_prior(X=X)
+        a, R = self._calc_aR(X=X)
         f, q = _calc_predictive_mean_and_var(F=self.F, a=a, R=R, s=self.v)
 
         A = (R @ self.F) / q
@@ -309,6 +428,7 @@ class Analysis():
         self.R = R
         self.m = a + A * et
         self.C = r * (R - q * A @ A.T)
+        self.t += 1
 
         # Update submodels mean and covariance posterior
         idx_dlm = self.model_index_dict.get('dlm')
