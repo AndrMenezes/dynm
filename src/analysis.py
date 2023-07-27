@@ -81,6 +81,7 @@ class Analysis():
         # Gamma distribution parameters
         self.n = 1
         self.d = 1
+        self.t = 0
 
         if V is None:
             self.s = 1
@@ -117,6 +118,34 @@ class Analysis():
             'arm': (grid_arm_x, grid_arm_y),
             'tfm': (grid_tfm_x, grid_tfm_y)
         }
+
+        # Get parameters names ---------------------------------------------- #
+        level_labels = \
+            ['intercept_' + str(i+1) for i in range(self.dlm.ntrend)]
+
+        regn_labels = \
+            ['beta_' + str(i+1) for i in range(self.dlm.nregn)]
+
+        ar__response_labels = \
+            ['xi_' + str(i+1) for i in range(self.arm.order)]
+
+        ar__decay_labels = \
+            ['phi_' + str(i+1) for i in range(self.arm.order)]
+
+        tf__response_labels = \
+            ['E_' + str(i+1) for i in range(self.tfm.order)]
+
+        tf__decay_labels = \
+            ['lambda_' + str(i+1) for i in range(self.tfm.order)]
+
+        pulse_labels = \
+            ['gamma_' + str(i+1) for i in range(self.tfm.ntfm)]
+
+        names_parameters = (level_labels + regn_labels +
+                            ar__response_labels + ar__decay_labels +
+                            tf__response_labels + tf__decay_labels +
+                            pulse_labels)
+        self.names_parameters = names_parameters
 
     def fit(self, y: np.ndarray, X: dict = {}, level: float = 0.05):
         """Short summary.
@@ -172,36 +201,11 @@ class Analysis():
         df_predictive = pd.DataFrame(dict_1step_forecast)
 
         # Organize the posterior parameters
-        level_labels = \
-            ['intercept_' + str(i+1) for i in range(self.dlm.ntrend)]
-
-        regn_labels = \
-            ['beta_' + str(i+1) for i in range(self.dlm.nregn)]
-
-        ar__response_labels = \
-            ['xi_' + str(i+1) for i in range(self.arm.order)]
-
-        ar__decay_labels = \
-            ['phi_' + str(i+1) for i in range(self.arm.order)]
-
-        tf__response_labels = \
-            ['E_' + str(i+1) for i in range(self.tfm.order)]
-
-        tf__decay_labels = \
-            ['lambda_' + str(i+1) for i in range(self.tfm.order)]
-
-        pulse_labels = \
-            ['gamma_' + str(i+1) for i in range(self.tfm.ntfm)]
-
-        names_parameters = (level_labels + regn_labels +
-                            ar__response_labels + ar__decay_labels +
-                            tf__response_labels + tf__decay_labels +
-                            pulse_labels)
-
         df_posterior = tidy_parameters(
             dict_parameters=dict_state_params,
             entry_m="m", entry_v="C",
-            names_parameters=names_parameters)
+            names_parameters=self.names_parameters)
+
         n_parms = len(df_posterior["parameter"].unique())
         t_index = np.arange(0, len(df_posterior) / n_parms) + 1
         df_posterior["t"] = np.repeat(t_index, n_parms)
@@ -238,9 +242,13 @@ class Analysis():
         f, q = _calc_predictive_mean_and_var(F=F, a=a, R=R, s=self.v)
         return f, q
 
-    def _k_steps_a_head_forecast(self, k: int, X: dict = {}):
+    def _k_steps_a_head_forecast(self, k: int, X: dict = {},
+                                 level: float = 0.05):
         ak = self.m
         Rk = self.C
+
+        dict_state_params = {'a': [], 'R': []}
+        dict_kstep_forecast = {'t': [], 'f': [], 'q': []}
 
         # Organize transfer function values
         Xt = {'dlm': [], 'tfm': []}
@@ -253,8 +261,6 @@ class Analysis():
             X['tfm'] = z
 
         # K steps-a-head forecast
-        f = np.ones(k)
-        q = np.ones(k)
         for t in range(k):
             F_dlm = self.dlm._update_F(x=X.get('dlm'))
             F = np.vstack((F_dlm, self.arm.F, self.tfm.F))
@@ -270,9 +276,54 @@ class Analysis():
             Rk = G @ Rk @ G.T + W
 
             # Predictive
-            f[t], q[t] = _calc_predictive_mean_and_var(
+            f, q = _calc_predictive_mean_and_var(
                 F=F, a=ak, R=Rk, s=self.v)
-        return f, q
+
+            # Append results
+            dict_kstep_forecast['t'].append(t)
+            dict_kstep_forecast['f'].append(np.ravel(f)[0])
+            dict_kstep_forecast['q'].append(np.ravel(q)[0])
+
+            # Dict state params
+            dict_state_params['a'].append(ak)
+            dict_state_params['R'].append(Rk)
+
+        df_predictive = pd.DataFrame(dict_kstep_forecast)
+
+        # Organize the posterior parameters
+        df_predict_aR = tidy_parameters(
+            dict_parameters=dict_state_params,
+            entry_m="a", entry_v="R",
+            names_parameters=self.names_parameters)
+
+        n_parms = len(df_predict_aR["parameter"].unique())
+        t_index = np.arange(0, len(df_predict_aR) / n_parms) + 1
+        df_predict_aR["t"] = np.repeat(t_index, n_parms)
+        df_predict_aR["t"] = df_predict_aR["t"].astype(int)
+
+        # Compute credible intervals
+        df_predict_aR["ci_lower"] = stats.t.ppf(
+            q=level/2, df=self.t + 1,
+            loc=df_predict_aR["mean"].values,
+            scale=np.sqrt(df_predict_aR["variance"].values) + 10e-300)
+
+        df_predict_aR["ci_upper"] = stats.t.ppf(
+            q=1-level/2, df=self.t + 1,
+            loc=df_predict_aR["mean"].values,
+            scale=np.sqrt(df_predict_aR["variance"].values) + 10e-300)
+
+        df_predictive["ci_lower"] = stats.t.ppf(
+            q=level/2, df=self.t + 1,
+            loc=df_predictive["f"].values,
+            scale=np.sqrt(df_predictive["q"].values) + 10e-300)
+
+        df_predictive["ci_upper"] = stats.t.ppf(
+            q=1-level/2, df=self.t + 1,
+            loc=df_predictive["f"].values,
+            scale=np.sqrt(df_predictive["q"].values) + 10e-300)
+
+        dict_results = {'filter': df_predictive, 'parameters': df_predict_aR}
+        return dict_results
 
     def _build_G(self, X: dict):
         G_dlm = self.dlm.G
@@ -377,6 +428,7 @@ class Analysis():
         self.R = R
         self.m = a + A * et
         self.C = r * (R - q * A @ A.T)
+        self.t += 1
 
         # Update submodels mean and covariance posterior
         idx_dlm = self.model_index_dict.get('dlm')
