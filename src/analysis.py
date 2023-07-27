@@ -138,13 +138,14 @@ class Analysis():
         tf__decay_labels = \
             ['lambda_' + str(i+1) for i in range(self.tfm.order)]
 
-        pulse_labels = \
-            ['gamma_' + str(i+1) for i in range(self.tfm.ntfm)]
+        pulse_labels = ['gamma_1']
 
-        names_parameters = (level_labels + regn_labels +
-                            ar__response_labels + ar__decay_labels +
-                            tf__response_labels + tf__decay_labels +
-                            pulse_labels)
+        names_parameters = (
+            level_labels + regn_labels +
+            ar__response_labels + ar__decay_labels +
+            self.tfm.ntfm *
+            (tf__response_labels + tf__decay_labels + pulse_labels))
+
         self.names_parameters = names_parameters
 
     def fit(self, y: np.ndarray, X: dict = {}, level: float = 0.05):
@@ -206,7 +207,16 @@ class Analysis():
             entry_m="m", entry_v="C",
             names_parameters=self.names_parameters)
 
-        n_parms = len(df_posterior["parameter"].unique())
+        dlm_lb = list(np.repeat('dlm', len(self.dlm.m)))
+        arm_lb = list(np.repeat('arm', len(self.arm.m)))
+        tfm_lb = list(np.repeat(
+            ['tfm_' + str(i + 1) for i in range(self.tfm.ntfm)],
+            2 * self.tfm.order + 1))
+
+        mod_lb = nobs * (dlm_lb + arm_lb + tfm_lb)
+        df_posterior["mod"] = mod_lb
+
+        n_parms = len(df_posterior[["parameter", "mod"]].drop_duplicates())
         t_index = np.arange(0, len(df_posterior) / n_parms) + 1
         df_posterior["t"] = np.repeat(t_index, n_parms)
         df_posterior["t"] = df_posterior["t"].astype(int)
@@ -296,7 +306,16 @@ class Analysis():
             entry_m="a", entry_v="R",
             names_parameters=self.names_parameters)
 
-        n_parms = len(df_predict_aR["parameter"].unique())
+        dlm_lb = list(np.repeat('dlm', len(self.dlm.m)))
+        arm_lb = list(np.repeat('arm', len(self.arm.m)))
+        tfm_lb = list(np.repeat(
+            ['tfm_' + str(i + 1) for i in range(self.tfm.ntfm)],
+            2 * self.tfm.order + 1))
+
+        mod_lb = k * (dlm_lb + arm_lb + tfm_lb)
+        df_predict_aR["mod"] = mod_lb
+
+        n_parms = len(df_predict_aR[["parameter", "mod"]].drop_duplicates())
         t_index = np.arange(0, len(df_predict_aR) / n_parms) + 1
         df_predict_aR["t"] = np.repeat(t_index, n_parms)
         df_predict_aR["t"] = df_predict_aR["t"].astype(int)
@@ -306,7 +325,6 @@ class Analysis():
             q=level/2, df=self.t + 1,
             loc=df_predict_aR["mean"].values,
             scale=np.sqrt(df_predict_aR["variance"].values) + 10e-300)
-
         df_predict_aR["ci_upper"] = stats.t.ppf(
             q=1-level/2, df=self.t + 1,
             loc=df_predict_aR["mean"].values,
@@ -316,7 +334,6 @@ class Analysis():
             q=level/2, df=self.t + 1,
             loc=df_predictive["f"].values,
             scale=np.sqrt(df_predictive["q"].values) + 10e-300)
-
         df_predictive["ci_upper"] = stats.t.ppf(
             q=1-level/2, df=self.t + 1,
             loc=df_predictive["f"].values,
