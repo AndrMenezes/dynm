@@ -2,6 +2,7 @@
 import numpy as np
 import unittest
 from src.analysis import Analysis
+from copy import copy
 
 # Simulating the data
 nobs = 500
@@ -67,6 +68,27 @@ class TestAnalysisAR(unittest.TestCase):
 
         self.assertTrue(np.abs(m[2] - true_phi_1) < .1)
         self.assertTrue(np.abs(m[3] - true_phi_2) < .1)
+
+    def test__analysis_with_nan(self):
+        """Test parameters estimation with nan in y."""
+        model_dict = {
+            'arm': {'m0': m0, 'C0': C0, 'order': 2,
+                    "del": np.array([1, 1, 1, 1])}
+        }
+
+        copy_y = copy(y)
+        copy_y[50] = np.nan
+
+        # Fit
+        mod = Analysis(model_dict=model_dict, V=sd_y**2)
+        fit_results = mod.fit(y=copy_y)
+
+        forecast_df = fit_results.get('filter')
+        m = mod.m
+
+        self.assertTrue(np.abs(m[2] - true_phi_1) < .2)
+        self.assertTrue(np.abs(m[3] - true_phi_2) < .2)
+        self.assertTrue(forecast_df.f.notnull().all())
 
     def test__k_steps_a_head_forecast(self):
         """Test k steps a head performance."""

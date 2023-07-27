@@ -417,53 +417,65 @@ class Analysis():
             Description of returned object.
 
         """
-        self.dlm.F = self.dlm._update_F(x=X.get('dlm'))
-        self.F = np.vstack((self.dlm.F, self.arm.F, self.tfm.F))
-
-        # Need a better solution for this!
-        if self.arm.order > 0:
-            self.v = 0
-        else:
-            self.v = self.s
-
-        a, R = self._calc_aR(X=X)
-        f, q = _calc_predictive_mean_and_var(F=self.F, a=a, R=R, s=self.v)
-
-        A = (R @ self.F) / q
-        et = y - f
-
-        # Estimate observational variance
-        if self.estimate_V:
-            r = (self.n + et**2 / q) / (self.n + 1)
-            self.n = self.n + 1
-            self.s = self.s * r
-        else:
-            r = 1
-
-        # Kalman filter update
-        self.a = a
-        self.R = R
-        self.m = a + A * et
-        self.C = r * (R - q * A @ A.T)
         self.t += 1
 
-        # Update submodels mean and covariance posterior
-        idx_dlm = self.model_index_dict.get('dlm')
-        idx_arm = self.model_index_dict.get('arm')
-        idx_tfm = self.model_index_dict.get('tfm')
+        if y is None or np.isnan(y):
+            self.m = self.a
+            self.C = self.R
 
-        grid_dlm_x, grid_dlm_y = self.grid_index_dict.get('dlm')
-        grid_arm_x, grid_arm_y = self.grid_index_dict.get('arm')
-        grid_tfm_x, grid_tfm_y = self.grid_index_dict.get('tfm')
+            # Get priors a, R for time t + 1 from the posteriors m, C
+            G = self._build_G(X=X)
+            h = self._build_h(G=G)
 
-        self.dlm.m = self.m[idx_dlm]
-        self.arm.m = self.m[idx_arm]
-        self.tfm.m = self.m[idx_tfm]
+            self.a = G @ self.m + h
+            self.R = G @ self.C @ self.G.T
+        else:
+            self.dlm.F = self.dlm._update_F(x=X.get('dlm'))
+            self.F = np.vstack((self.dlm.F, self.arm.F, self.tfm.F))
 
-        self.dlm.C = self.C[grid_dlm_x, grid_dlm_y]
-        self.arm.C = self.C[grid_arm_x, grid_arm_y]
-        self.tfm.C = self.C[grid_tfm_x, grid_tfm_y]
+            # Need a better solution for this!
+            if self.arm.order > 0:
+                self.v = 0
+            else:
+                self.v = self.s
 
-        self.dlm.s = self.s
-        self.arm.s = self.s
-        self.tfm.s = self.s
+            a, R = self._calc_aR(X=X)
+            f, q = _calc_predictive_mean_and_var(F=self.F, a=a, R=R, s=self.v)
+
+            A = (R @ self.F) / q
+            et = y - f
+
+            # Estimate observational variance
+            if self.estimate_V:
+                r = (self.n + et**2 / q) / (self.n + 1)
+                self.n = self.n + 1
+                self.s = self.s * r
+            else:
+                r = 1
+
+            # Kalman filter update
+            self.a = a
+            self.R = R
+            self.m = a + A * et
+            self.C = r * (R - q * A @ A.T)
+
+            # Update submodels mean and covariance posterior
+            idx_dlm = self.model_index_dict.get('dlm')
+            idx_arm = self.model_index_dict.get('arm')
+            idx_tfm = self.model_index_dict.get('tfm')
+
+            grid_dlm_x, grid_dlm_y = self.grid_index_dict.get('dlm')
+            grid_arm_x, grid_arm_y = self.grid_index_dict.get('arm')
+            grid_tfm_x, grid_tfm_y = self.grid_index_dict.get('tfm')
+
+            self.dlm.m = self.m[idx_dlm]
+            self.arm.m = self.m[idx_arm]
+            self.tfm.m = self.m[idx_tfm]
+
+            self.dlm.C = self.C[grid_dlm_x, grid_dlm_y]
+            self.arm.C = self.C[grid_arm_x, grid_arm_y]
+            self.tfm.C = self.C[grid_tfm_x, grid_tfm_y]
+
+            self.dlm.s = self.s
+            self.arm.s = self.s
+            self.tfm.s = self.s
