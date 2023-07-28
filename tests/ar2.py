@@ -25,7 +25,7 @@ nu = np.random.normal(loc=0, scale=sd_y, size=nobs)
 # First observation
 y[0] = xi_1[0] + nu[0]
 
-np.random.seed(1212)
+np.random.seed(1111)
 for t in range(1, nobs):
     # Evolution
     xi_1[t] = true_phi_1 * xi_1[t - 1] + true_phi_2 * xi_2[t - 1] + nu[t]
