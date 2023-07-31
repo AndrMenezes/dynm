@@ -7,7 +7,9 @@ from scipy.linalg import block_diag
 class DLM():
     """Class for fitting, forecast and update dynamic linear models."""
 
-    def __init__(self, m0: np.ndarray, C0: np.ndarray,
+    def __init__(self,
+                 m0: np.ndarray,
+                 C0: np.ndarray,
                  ntrend: int, nregn: int,
                  discount_factors: np.ndarray = None,
                  W: np.ndarray = None,
