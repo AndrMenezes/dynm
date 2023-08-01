@@ -272,11 +272,11 @@ class Analysis():
 
         # K steps-a-head forecast
         for t in range(k):
-            F_dlm = self.dlm._update_F(x=X.get('dlm'))
-            F = np.vstack((F_dlm, self.arm.F, self.tfm.F))
-
             Xt['dlm'] = X['dlm'][t, :]
             Xt['tfm'] = X['tfm'][t, :]
+
+            F_dlm = self.dlm._update_F(x=Xt.get('dlm'))
+            F = np.vstack((F_dlm, self.arm.F, self.tfm.F))
 
             # Predictive distribution moments
             G = self._build_G(X=Xt)
