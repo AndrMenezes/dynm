@@ -127,7 +127,7 @@ class TestAnalysisARTF(unittest.TestCase):
         self.assertTrue(np.abs(m[8] - true_gamma) < .2)
         self.assertTrue(forecast_df.f.notnull().all())
 
-    def test__k_steps_a_head_forecast(self):
+    def test__k_steps_ahead_forecast(self):
         """Test k steps a head performance."""
         model_dict = {
             'arm': {'m0': arm_m0, 'C0': arm_C0, 'order': 2, "del": arm_del},
@@ -147,7 +147,7 @@ class TestAnalysisARTF(unittest.TestCase):
         fit_results = mod.fit(y=tr__y, X=tr__X)
 
         # Forecasting
-        forecast_results = mod._k_steps_a_head_forecast(k=50, X=te__X)
+        forecast_results = mod._k_steps_ahead_forecast(k=50, X=te__X)
         forecast_df = forecast_results.get('filter')
         parameters_df = forecast_results.get('parameters')
 

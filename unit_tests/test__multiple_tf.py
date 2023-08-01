@@ -157,7 +157,7 @@ class TestAnalysisTF(unittest.TestCase):
         self.assertTrue(np.abs(m[9] - true_gamma_2) < 1)
         self.assertTrue(forecast_df.f.notnull().all())
 
-    def test__k_steps_a_head_forecast(self):
+    def test__k_steps_ahead_forecast(self):
         """Test k steps a head performance."""
         model_dict = {
             'tfm': {'m0': m0, 'C0': C0, 'order': 2, "ntfm": 2,
@@ -176,7 +176,7 @@ class TestAnalysisTF(unittest.TestCase):
         fit_results = mod.fit(y=tr__y, X=tr__X)
 
         # Forecasting
-        forecast_results = mod._k_steps_a_head_forecast(k=50, X=te__X)
+        forecast_results = mod._k_steps_ahead_forecast(k=50, X=te__X)
         forecast_df = forecast_results.get('filter')
         parameters_df = forecast_results.get('parameters')
 

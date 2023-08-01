@@ -252,8 +252,8 @@ class Analysis():
         f, q = _calc_predictive_mean_and_var(F=F, a=a, R=R, s=self.v)
         return f, q
 
-    def _k_steps_a_head_forecast(self, k: int, X: dict = {},
-                                 level: float = 0.05):
+    def _k_steps_ahead_forecast(self, k: int, X: dict = {},
+                                level: float = 0.05):
         ak = self.m
         Rk = self.C
 
