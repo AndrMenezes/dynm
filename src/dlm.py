@@ -9,6 +9,7 @@ class DLM():
 
     def __init__(self, m0: np.ndarray, C0: np.ndarray,
                  ntrend: int, nregn: int,
+                 seas_period: int = None, seas_harm_components: list = None,
                  discount_factors: np.ndarray = None,
                  W: np.ndarray = None,
                  V: float = None):
@@ -29,6 +30,9 @@ class DLM():
         """
         self.ntrend = ntrend
         self.nregn = nregn
+        self.nseas = 2 * len(seas_harm_components)
+        self.seas_period = seas_period
+        self.seas_harm_components = seas_harm_components
         self.m = m0.reshape(-1, 1)  # Validar entrada de dimensões
         self.C = C0
 
@@ -71,14 +75,26 @@ class DLM():
 
     def _build_Fregn(self, x: np.array):
         nregn = self.nregn
-        # Fregn = np.ones(nregn) * (x - self.m[0])
+
         Fregn = np.ones(nregn) * x
         return Fregn
+
+    def _build_Fseas(self):
+        seas_harm_components = self.seas_harm_components
+
+        p = len(seas_harm_components)
+        n = 2 * p
+
+        Fseas = np.zeros([n, 1])
+        Fseas[0:n:2] = 1
+
+        return Fseas.T
 
     def _build_F(self, x: np.array = None):
         Ftrend = self._build_Ftrend()
         Fregn = self._build_Fregn(x=x)
-        F = np.block([Ftrend, Fregn]).reshape(-1, 1)
+        Fseas = self._build_Fseas()
+        F = np.block([Ftrend, Fregn, Fseas]).reshape(-1, 1)
         return F
 
     def _build_Gtrend(self):
@@ -95,16 +111,32 @@ class DLM():
         Gregn = np.identity(nregn)
         return Gregn
 
+    def _build_Gseas(self):
+        seas_period = self.seas_period
+        seas_harm_components = self.seas_harm_components
+
+        p = len(seas_harm_components)
+        n = 2 * p
+        Gseas = np.zeros([n, n])
+
+        for j in range(p):
+            c = np.cos(2*np.pi*seas_harm_components[j] / seas_period)
+            s = np.sin(2*np.pi*seas_harm_components[j] / seas_period)
+            idx = 2*j
+            Gseas[idx:(idx+2), idx:(idx+2)] = np.array([[c, s], [-s, c]])
+
+        return Gseas
+
     def _build_G(self):
         Gtrend = self._build_Gtrend()
         Gregn = self._build_Gregn()
+        Gseas = self._build_Gseas()
 
-        G = block_diag(Gtrend, Gregn)
+        G = block_diag(Gtrend, Gregn, Gseas)
         return G
 
     def _update_F(self, x: np.array = None):
         F = self.F
-        # F[self.index_dict.get('reg'), 0] = np.ravel(x) - self.m[0]
         F[self.index_dict.get('reg'), 0] = np.ravel(x)
         return F
 
