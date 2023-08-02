@@ -24,6 +24,7 @@ class NullModel():
         self.order = 0
         self.ntrend = 0
         self.nregn = 0
+        self.nseas = 0
         self.ntfm = 0
         self.m = np.array([np.array([])]).reshape(-1, 1)
         self.C = np.empty([0, 0])
