@@ -37,6 +37,9 @@ class Analysis():
                 discount_factors=model_dict.get('dlm').get('del'),
                 ntrend=model_dict.get('dlm').get('ntrend'),
                 nregn=model_dict.get('dlm').get('nregn'),
+                seas_period=model_dict.get('dlm').get('seas_period'),
+                seas_harm_components=model_dict.get('dlm')
+                .get('seas_harm_components'),
                 W=model_dict.get('dlm').get('W'))
         else:
             dlm = NullModel()
@@ -126,6 +129,9 @@ class Analysis():
         regn_labels = \
             ['beta_' + str(i+1) for i in range(self.dlm.nregn)]
 
+        seas_labels = \
+            ['rho_' + str(i+1) for i in range(self.dlm.nseas)]
+
         ar__response_labels = \
             ['xi_' + str(i+1) for i in range(self.arm.order)]
 
@@ -141,7 +147,7 @@ class Analysis():
         pulse_labels = ['gamma_1']
 
         names_parameters = (
-            level_labels + regn_labels +
+            level_labels + regn_labels + seas_labels +
             ar__response_labels + ar__decay_labels +
             self.tfm.ntfm *
             (tf__response_labels + tf__decay_labels + pulse_labels))
@@ -252,8 +258,8 @@ class Analysis():
         f, q = _calc_predictive_mean_and_var(F=F, a=a, R=R, s=self.v)
         return f, q
 
-    def _k_steps_a_head_forecast(self, k: int, X: dict = {},
-                                 level: float = 0.05):
+    def _k_steps_ahead_forecast(self, k: int, X: dict = {},
+                                level: float = 0.05):
         ak = self.m
         Rk = self.C
 
@@ -272,11 +278,11 @@ class Analysis():
 
         # K steps-a-head forecast
         for t in range(k):
-            F_dlm = self.dlm._update_F(x=X.get('dlm'))
-            F = np.vstack((F_dlm, self.arm.F, self.tfm.F))
-
             Xt['dlm'] = X['dlm'][t, :]
             Xt['tfm'] = X['tfm'][t, :]
+
+            F_dlm = self.dlm._update_F(x=Xt.get('dlm'))
+            F = np.vstack((F_dlm, self.arm.F, self.tfm.F))
 
             # Predictive distribution moments
             G = self._build_G(X=Xt)

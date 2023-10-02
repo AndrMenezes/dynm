@@ -5,7 +5,7 @@ from src.analysis import Analysis
 
 ###############################################################################
 # Simulating the data
-nobs = 100
+nobs = 20000
 sd_y = 0.02
 sd_mu = 2e-6
 sd_beta = 2e-4
@@ -50,11 +50,11 @@ data_ar_trend.to_csv("ar_trend.csv", index=False)
 
 
 # Estimation
-m0_trend = np.array([0, 0])
+m0_trend = np.array([5, 0])
 C0_trend = np.identity(2)
 np.fill_diagonal(C0_trend, val=10)
 W_trend = np.identity(2)
-np.fill_diagonal(W_trend, val=[sd_mu**2, sd_beta**2])
+np.fill_diagonal(W_trend, val=[sd_mu**2 + sd_beta**2, sd_beta**2])
 
 m0_ar = np.array([0, 0, 1, 0])
 C0_ar = np.identity(4)
@@ -70,6 +70,13 @@ model_dict = {
     'arm': {'m0': m0_ar, 'C0': C0_ar, 'order': 2, 'W': W_ar}
 }
 
+
+model_dict = {
+    'dlm': {'m0': m0_trend, 'C0': C0_trend, 'ntrend': 2, 'nregn': 0,
+            'del': np.array([.98, .99])},
+    'arm': {'m0': m0_ar, 'C0': C0_ar, 'order': 2,
+            'del': np.array([1, 1, .99, .99])}
+}
 
 # Fit
 mod = Analysis(model_dict=model_dict, V=sd_y**2)
