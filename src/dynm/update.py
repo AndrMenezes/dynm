@@ -1,11 +1,5 @@
 """Update methods for dynamic linear models using kalman filter."""
 import numpy as np
-import pandas as pd
-import copy
-from scipy import stats
-from src.utils import tidy_parameters
-from scipy.linalg import block_diag
-
 
 def update_dlm(mod, y: float, x: float = None):
     """Update space state moments.

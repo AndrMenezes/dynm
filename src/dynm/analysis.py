@@ -1,14 +1,14 @@
 """Utils functions."""
 import numpy as np
 import pandas as pd
-from src.algebra import _calc_predictive_mean_and_var
-from src.dlm_autoregressive import AutoRegressive
-from src.dlm_transfer_function import TransferFunction
-from src.dlm import DLM
-from src.dlm_nullmodel import NullModel
-from src.utils import tidy_parameters
-from scipy import stats
+from dynm.dlm import DLM
+from dynm.utils import tidy_parameters
+from dynm.algebra import _calc_predictive_mean_and_var
+from dynm.dlm_nullmodel import NullModel
+from dynm.dlm_autoregressive import AutoRegressive
+from dynm.dlm_transfer_function import TransferFunction
 from scipy.linalg import block_diag
+from scipy import stats
 
 
 class Analysis():
@@ -37,6 +37,9 @@ class Analysis():
                 discount_factors=model_dict.get('dlm').get('del'),
                 ntrend=model_dict.get('dlm').get('ntrend'),
                 nregn=model_dict.get('dlm').get('nregn'),
+                seas_period=model_dict.get('dlm').get('seas_period'),
+                seas_harm_components=model_dict.get(
+                    'dlm').get('seas_harm_components'),
                 W=model_dict.get('dlm').get('W'))
         else:
             dlm = NullModel()

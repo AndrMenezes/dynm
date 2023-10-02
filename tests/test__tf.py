@@ -1,7 +1,7 @@
 """Test autoregressive model parameters estimation."""
 import numpy as np
 import unittest
-from src.analysis import Analysis
+from dynm.analysis import Analysis
 from copy import copy
 
 # Simulating the data

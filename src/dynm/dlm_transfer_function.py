@@ -1,8 +1,8 @@
 """Utils functions."""
 import numpy as np
 import copy
-from src.algebra import _calc_predictive_mean_and_var
-from src.algebra import _build_Gnonlinear, _build_W
+from dynm.algebra import _calc_predictive_mean_and_var
+from dynm.algebra import _build_Gnonlinear, _build_W
 from scipy.linalg import block_diag
 
 
