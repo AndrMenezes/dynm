@@ -83,13 +83,14 @@ class Analysis():
 
         # Gamma distribution parameters
         self.n = 1
-        self.d = 1
         self.t = 0
 
         if V is None:
+            self.d = 1
             self.s = 1
             self.estimate_V = True
         else:
+            self.d = 0
             self.s = V
             self.estimate_V = False
 
@@ -168,7 +169,8 @@ class Analysis():
 
         """
         nobs = len(y)
-        dict_1step_forecast = {'t': [], 'y': [], 'f': [], 'q': [], 's': []}
+        dict_1step_forecast = {'t': [], 'y': [], 'f': [], 'q': []}
+        dict_observation_var = {'t': [], 'd': [], 'n': [], 'mean': []}
         dict_state_params = {'m': [], 'C': []}
         Xt = {'dlm': [], 'tfm': []}
         copy_X = X.copy()
@@ -192,7 +194,6 @@ class Analysis():
             dict_1step_forecast['y'].append(y[t])
             dict_1step_forecast['f'].append(np.ravel(f)[0])
             dict_1step_forecast['q'].append(np.ravel(q)[0])
-            dict_1step_forecast['s'].append(np.ravel(self.s)[0])
 
             # Update model
             self.update(y=y[t], X=Xt)
@@ -200,6 +201,12 @@ class Analysis():
             # Dict state params
             dict_state_params['m'].append(self.m)
             dict_state_params['C'].append(self.C)
+
+            # Observational variance
+            dict_observation_var['t'].append(t)
+            dict_observation_var['d'].append(np.ravel(self.d)[0])
+            dict_observation_var['n'].append(np.ravel(self.n)[0])
+            dict_observation_var['mean'].append(np.ravel(self.s)[0])
 
         self.dict_state_params = dict_state_params
         df_predictive = pd.DataFrame(dict_1step_forecast)
@@ -224,6 +231,12 @@ class Analysis():
         df_posterior["t"] = np.repeat(t_index, n_parms)
         df_posterior["t"] = df_posterior["t"].astype(int)
 
+        # Organize observational variance
+        df_var = pd.DataFrame(dict_observation_var)
+        df_var['variance'] = df_var.d / (df_var.n ** 2)
+        df_var['parameter'] = 'V'
+        df_var['mod'] = 'gamma'
+
         # Compute credible intervals
         df_posterior["ci_lower"] = stats.t.ppf(
             q=level/2, df=df_posterior["t"].values + 1,
@@ -243,6 +256,19 @@ class Analysis():
             q=1-level/2, df=df_predictive["t"].values + 1,
             loc=df_predictive["f"].values,
             scale=np.sqrt(df_predictive["q"].values) + 10e-300)
+
+        df_var["ci_lower"] = stats.gamma.ppf(
+            q=level/2,
+            a=1/df_var["n"].values,
+            scale=df_var["d"].values + 10e-300)
+        df_var["ci_upper"] = stats.gamma.ppf(
+            q=1-level/2,
+            a=2/df_var["n"].values,
+            scale=df_var["d"].values/2 + 10e-300)
+
+        # Combine parameters results
+        df_var.drop(['d', 'n'], axis=1, inplace=True)
+        df_posterior = pd.concat([df_posterior, df_var])
 
         dict_results = {'filter': df_predictive, 'posterior': df_posterior}
         return dict_results
@@ -453,6 +479,7 @@ class Analysis():
                 r = (self.n + et**2 / q) / (self.n + 1)
                 self.n = self.n + 1
                 self.s = self.s * r
+                self.d = self.s * self.n
             else:
                 r = 1
 
