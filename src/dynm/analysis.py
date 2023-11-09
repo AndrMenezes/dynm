@@ -9,6 +9,7 @@ from dynm.dlm_autoregressive import AutoRegressive
 from dynm.dlm_transfer_function import TransferFunction
 from scipy.linalg import block_diag
 from scipy import stats
+from copy import copy
 
 
 class Analysis():
@@ -130,6 +131,9 @@ class Analysis():
         regn_labels = \
             ['beta_' + str(i+1) for i in range(self.dlm.nregn)]
 
+        seas_labels = \
+            ['seas_harm_' + str(i+1) for i in range(self.dlm.nseas)]
+
         ar__response_labels = \
             ['xi_' + str(i+1) for i in range(self.arm.order)]
 
@@ -145,8 +149,11 @@ class Analysis():
         pulse_labels = ['gamma_1']
 
         names_parameters = (
-            level_labels + regn_labels +
-            ar__response_labels + ar__decay_labels +
+            level_labels +
+            regn_labels +
+            seas_labels +
+            ar__response_labels +
+            ar__decay_labels +
             self.tfm.ntfm *
             (tf__response_labels + tf__decay_labels + pulse_labels))
 
@@ -273,7 +280,7 @@ class Analysis():
         dict_results = {'filter': df_predictive, 'posterior': df_posterior}
         return dict_results
 
-    def _forecast(self, X: dict):
+    def _forecast(self, X: dict = {}):
         F_dlm = self.dlm._update_F(x=X.get('dlm'))
         F = np.vstack((F_dlm, self.arm.F, self.tfm.F))
 
@@ -283,35 +290,38 @@ class Analysis():
 
     def _k_steps_a_head_forecast(self, k: int, X: dict = {},
                                  level: float = 0.05):
-        ak = self.m
-        Rk = self.C
+        ak = copy(self.m)
+        Rk = copy(self.C)
 
         dict_state_params = {'a': [], 'R': []}
         dict_kstep_forecast = {'t': [], 'f': [], 'q': []}
 
-        # Organize transfer function values
         Xt = {'dlm': [], 'tfm': []}
+        copy_X = X.copy()
+
+        # Organize transfer function values
         if X.get('dlm') is None:
             x = np.array([None]*(k+1)).reshape(-1, 1)
-            X['dlm'] = x
+            copy_X['dlm'] = x
 
         if X.get('tfm') is None:
             z = np.array([None]*(k+1)).reshape(-1, 1)
-            X['tfm'] = z
+            copy_X['tfm'] = z
 
         # K steps-a-head forecast
         for t in range(k):
-            F_dlm = self.dlm._update_F(x=X.get('dlm'))
-            F = np.vstack((F_dlm, self.arm.F, self.tfm.F))
+            Xt['dlm'] = copy_X['dlm'][t, :]
+            Xt['tfm'] = copy_X['tfm'][t, :]
 
-            Xt['dlm'] = X['dlm'][t, :]
-            Xt['tfm'] = X['tfm'][t, :]
+            F_dlm = self.dlm._update_F(x=Xt.get('dlm'))
+            F = np.vstack((F_dlm, self.arm.F, self.tfm.F))
 
             # Predictive distribution moments
             G = self._build_G(X=Xt)
             W = self._build_W(G=G)
+            h = self._build_h(G=G)
 
-            ak = G @ ak
+            ak = G @ ak + h
             Rk = G @ Rk @ G.T + W
 
             # Predictive
