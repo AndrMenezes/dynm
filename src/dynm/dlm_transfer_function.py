@@ -141,8 +141,8 @@ class TransferFunction():
             W = _build_W(mod=self, P=P)
 
             for n in range(self.ntfm):
-                idx = np.ix_(self.index_dict.get(n).get('all')[1:],
-                             self.index_dict.get(n).get('all')[1:])
+                idx = np.ix_(self.index_dict.get(n).get('response')[1:],
+                             self.index_dict.get(n).get('response')[1:])
 
                 W[idx] = W[idx] * 0.0
         else:
