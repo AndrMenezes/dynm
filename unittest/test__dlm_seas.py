@@ -48,8 +48,8 @@ np.fill_diagonal(C0, val=[9, 9, 9, 9, 9])
 class TestAnalysisAR(unittest.TestCase):
     """Tests Analysis results for AutoRegressive Model."""
 
-    def test__estimates_known_W(self):
-        """Test parameters estimation with know W."""
+    def test__estimates_known_W_and_V(self):
+        """Test parameters estimation with know W and V."""
         model_dict = {
             'dlm': {
                 'm0': m0,
@@ -64,7 +64,7 @@ class TestAnalysisAR(unittest.TestCase):
         # Fit
         mod = Analysis(model_dict=model_dict, V=sd_y**2)
         fit_results = mod.fit(y=y)
-        forecast_df = fit_results.get('filter')
+        forecast_df = fit_results.get('predictive')
 
         mape = np.mean(np.abs(forecast_df.f - forecast_df.y) / forecast_df.y)
 
@@ -86,7 +86,7 @@ class TestAnalysisAR(unittest.TestCase):
         # Fit
         mod = Analysis(model_dict=model_dict, V=sd_y**2)
         fit_results = mod.fit(y=y)
-        forecast_df = fit_results.get('filter')
+        forecast_df = fit_results.get('predictive')
 
         mape = np.mean(np.abs(forecast_df.f - forecast_df.y) / forecast_df.y)
 
@@ -110,12 +110,12 @@ class TestAnalysisAR(unittest.TestCase):
         te__y = y[60:]
 
         # Fit
-        mod = Analysis(model_dict=model_dict, V=sd_y**2)
+        mod = Analysis(model_dict=model_dict)
         fit_results = mod.fit(y=tr__y)
 
         # Forecasting
-        forecast_results = mod._k_steps_ahead_forecast(k=20)
-        forecast_df = forecast_results.get('filter')
+        forecast_results = mod._k_steps_a_head_forecast(k=20)
+        forecast_df = forecast_results.get('predictive')
         parameters_df = forecast_results.get('parameters')
 
         mape = np.mean(np.abs(forecast_df.f - te__y) / te__y)
@@ -136,7 +136,7 @@ class TestAnalysisAR(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict, V=sd_y**2)
+        mod = Analysis(model_dict=model_dict)
         fit_results = mod.fit(y=y)
 
         # Forecasting
@@ -144,10 +144,85 @@ class TestAnalysisAR(unittest.TestCase):
 
         forecast_df = mod\
             ._k_steps_a_head_forecast(k=1)\
-            .get('filter')
+            .get('predictive')
 
         fk = forecast_df.f.values
         qk = forecast_df.q.values
 
         self.assertTrue(np.isclose(f, fk))
         self.assertTrue(np.isclose(q, qk))
+
+    def test__smoothed_posterior_variance(self):
+        """Test smooth posterior variance."""
+        model_dict = {
+            'dlm': {
+                'm0': m0,
+                'C0': C0,
+                'ntrend': 1,
+                'nregn': 0,
+                "seas_period": 12,
+                "seas_harm_components": [1, 2],
+                "del": np.repeat(1, 5)}
+        }
+
+        # Fit
+        mod = Analysis(model_dict=model_dict)
+        smooth_posterior = mod.fit(y=y, smooth=True)\
+            .get('smooth').get('posterior')
+
+        min_var = smooth_posterior.variance.min()
+        self.assertTrue(min_var >= 0.0)
+
+    def test__smoothed_predictive_variance(self):
+        """Test smooth predictive variance."""
+        model_dict = {
+            'dlm': {
+                'm0': m0,
+                'C0': C0,
+                'ntrend': 1,
+                'nregn': 0,
+                "seas_period": 12,
+                "seas_harm_components": [1, 2],
+                "del": np.repeat(1, 5)}
+        }
+
+        # Fit
+        mod = Analysis(model_dict=model_dict)
+        smooth_predictive = mod.fit(y=y, smooth=True)\
+            .get('smooth').get('predictive')
+
+        min_var = smooth_predictive.qk.min()
+        self.assertTrue(min_var >= 0.0)
+
+    def test__smoothed_predictive_errors(self):
+        """Test smooth predictive mape."""
+        model_dict = {
+            'dlm': {
+                'm0': m0,
+                'C0': C0,
+                'ntrend': 1,
+                'nregn': 0,
+                "seas_period": 12,
+                "seas_harm_components": [1, 2],
+                "del": np.repeat(1, 5)}
+        }
+
+        # Fit
+        mod = Analysis(model_dict=model_dict)
+        fit_results = mod.fit(y=y, smooth=True)
+
+        filter_predictive = fit_results\
+            .get('filter').get('predictive')\
+            .sort_values('t')
+
+        smooth_predictive = fit_results\
+            .get('smooth').get('predictive')\
+            .sort_values('t')
+
+        f = filter_predictive.f.values
+        fk = smooth_predictive.fk.values
+
+        mse1 = np.mean((f-y)**2)
+        mse2 = np.mean((fk-y)**2)
+
+        self.assertTrue(mse2/mse1 <= 1.0)
