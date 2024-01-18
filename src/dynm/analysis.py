@@ -2,13 +2,15 @@
 import numpy as np
 import pandas as pd
 from dynm.dlm import DLM
-from dynm.utils import tidy_parameters
+from dynm.utils import tidy_parameters, create_mod_label_column
+from dynm.utils import add_credible_interval_studentt
+from dynm.utils import add_credible_interval_gamma
 from dynm.algebra import _calc_predictive_mean_and_var
 from dynm.dlm_nullmodel import NullModel
 from dynm.dlm_autoregressive import AutoRegressive
 from dynm.dlm_transfer_function import TransferFunction
+from dynm.smooth import _backward_smoother
 from scipy.linalg import block_diag
-from scipy import stats
 from copy import copy
 
 
@@ -102,10 +104,10 @@ class Analysis():
 
         # Get index for blocks ---------------------------------------------- #
         p_dlm = len(dlm.m)
-        p_ar = len(arm.m)
-        p_tf = len(tfm.m)
+        p_arm = len(arm.m)
+        p_tfm = len(tfm.m)
 
-        block_idx = np.cumsum([p_dlm, p_ar, p_tf])
+        block_idx = np.cumsum([p_dlm, p_arm, p_tfm])
 
         idx_dlm = np.arange(0, block_idx[0])
         idx_arm = np.arange(block_idx[0], block_idx[1])
@@ -158,8 +160,16 @@ class Analysis():
             (tf__response_labels + tf__decay_labels + pulse_labels))
 
         self.names_parameters = names_parameters
+        self.p = len(self.names_parameters)
+        self.dlm.p = p_dlm
+        self.tfm.p = p_tfm
+        self.arm.p = p_arm
 
-    def fit(self, y: np.ndarray, X: dict = {}, level: float = 0.05):
+    def fit(self,
+            y: np.ndarray,
+            X: dict = {},
+            level: float = 0.05,
+            smooth: bool = False):
         """Short summary.
 
         Parameters
@@ -178,7 +188,8 @@ class Analysis():
         nobs = len(y)
         dict_1step_forecast = {'t': [], 'y': [], 'f': [], 'q': []}
         dict_observation_var = {'t': [], 'd': [], 'n': [], 'mean': []}
-        dict_state_params = {'m': [], 'C': []}
+        dict_state_params = {'m': [], 'C': [], 'a': [], 'R': []}
+        dict_state_evolution = {'G': []}
         Xt = {'dlm': [], 'tfm': []}
         copy_X = X.copy()
 
@@ -197,7 +208,7 @@ class Analysis():
             f, q = self._forecast(X=Xt)
 
             # Append results
-            dict_1step_forecast['t'].append(t)
+            dict_1step_forecast['t'].append(t+1)
             dict_1step_forecast['y'].append(y[t])
             dict_1step_forecast['f'].append(np.ravel(f)[0])
             dict_1step_forecast['q'].append(np.ravel(q)[0])
@@ -206,16 +217,22 @@ class Analysis():
             self.update(y=y[t], X=Xt)
 
             # Dict state params
-            dict_state_params['m'].append(self.m)
-            dict_state_params['C'].append(self.C)
+            dict_state_params["a"].append(self.a)
+            dict_state_params["R"].append(self.R)
+            dict_state_params["m"].append(self.m)
+            dict_state_params["C"].append(self.C)
+
+            # State evolution matrix
+            dict_state_evolution['G'].append(self.G)
 
             # Observational variance
-            dict_observation_var['t'].append(t)
+            dict_observation_var['t'].append(t+1)
             dict_observation_var['d'].append(np.ravel(self.d)[0])
             dict_observation_var['n'].append(np.ravel(self.n)[0])
             dict_observation_var['mean'].append(np.ravel(self.s)[0])
 
         self.dict_state_params = dict_state_params
+        self.dict_state_evolution = dict_state_evolution
         df_predictive = pd.DataFrame(dict_1step_forecast)
 
         # Organize the posterior parameters
@@ -224,67 +241,57 @@ class Analysis():
             entry_m="m", entry_v="C",
             names_parameters=self.names_parameters)
 
-        dlm_lb = list(np.repeat('dlm', len(self.dlm.m)))
-        arm_lb = list(np.repeat('arm', len(self.arm.m)))
-        tfm_lb = list(np.repeat(
-            ['tfm_' + str(i + 1) for i in range(self.tfm.ntfm)],
-            2 * self.tfm.order + 1))
+        # Create model labels
+        df_posterior["mod"] = create_mod_label_column(mod=self, t=self.t)
 
-        mod_lb = nobs * (dlm_lb + arm_lb + tfm_lb)
-        df_posterior["mod"] = mod_lb
-
-        n_parms = len(df_posterior[["parameter", "mod"]].drop_duplicates())
-        t_index = np.arange(0, len(df_posterior) / n_parms) + 1
-        df_posterior["t"] = np.repeat(t_index, n_parms)
+        # Add time column on posterior_df
+        t_index = np.arange(1, self.t + 1)
+        df_posterior["t"] = np.repeat(t_index, self.p)
         df_posterior["t"] = df_posterior["t"].astype(int)
 
         # Organize observational variance
-        df_var = pd.DataFrame(dict_observation_var)
-        df_var['variance'] = df_var.d / (df_var.n ** 2)
-        df_var['parameter'] = 'V'
-        df_var['mod'] = 'gamma'
+        df_var = pd.DataFrame(dict_observation_var)\
+            .assign(
+                variance=lambda x: x.d / (x.n ** 2),
+                parameter="V",
+                mod="gamma"
+        )
+
+        # Round variance
+        df_posterior["variance"] = df_posterior["variance"].round(10)
+        df_predictive["q"] = df_predictive["q"].round(10)
 
         # Compute credible intervals
-        df_posterior["ci_lower"] = stats.t.ppf(
-            q=level/2, df=df_posterior["t"].values + 1,
-            loc=df_posterior["mean"].values,
-            scale=np.sqrt(df_posterior["variance"].values) + 10e-300)
-        df_posterior["ci_upper"] = stats.t.ppf(
-            q=1-level/2,
-            df=df_posterior["t"].values + 1,
-            loc=df_posterior["mean"].values,
-            scale=np.sqrt(df_posterior["variance"].values) + 10e-300)
+        df_posterior = add_credible_interval_studentt(
+            pd_df=df_posterior, entry_m="mean",
+            entry_v="variance", level=level)
 
-        df_predictive["ci_lower"] = stats.t.ppf(
-            q=level/2, df=df_predictive["t"].values + 1,
-            loc=df_predictive["f"].values,
-            scale=np.sqrt(df_predictive["q"].values) + 10e-300)
-        df_predictive["ci_upper"] = stats.t.ppf(
-            q=1-level/2, df=df_predictive["t"].values + 1,
-            loc=df_predictive["f"].values,
-            scale=np.sqrt(df_predictive["q"].values) + 10e-300)
+        df_predictive = add_credible_interval_studentt(
+            pd_df=df_predictive, entry_m="f",
+            entry_v="q", level=level)
 
-        df_var["ci_lower"] = stats.gamma.ppf(
-            q=level/2,
-            a=1/df_var["n"].values,
-            scale=df_var["d"].values + 10e-300)
-        df_var["ci_upper"] = stats.gamma.ppf(
-            q=1-level/2,
-            a=2/df_var["n"].values,
-            scale=df_var["d"].values/2 + 10e-300)
+        df_var = add_credible_interval_gamma(
+            pd_df=df_var, entry_a="n", entry_b="d", level=level)
 
         # Combine parameters results
         df_var.drop(['d', 'n'], axis=1, inplace=True)
         df_posterior = pd.concat([df_posterior, df_var])
 
-        dict_results = {'filter': df_predictive, 'posterior': df_posterior}
-        return dict_results
+        # Creat dict of results
+        filter_dict = {'predictive': df_predictive, 'posterior': df_posterior}
+
+        if smooth:
+            smooth_dict = _backward_smoother(mod=self)
+            dict_results = {'filter': filter_dict, 'smooth': smooth_dict}
+            return dict_results
+        else:
+            return filter_dict
 
     def _forecast(self, X: dict = {}):
-        F_dlm = self.dlm._update_F(x=X.get('dlm'))
-        F = np.vstack((F_dlm, self.arm.F, self.tfm.F))
+        F = self._build_F(X=X)
+        G = self._build_G(X=X)
 
-        a, R = self._calc_aR(X=X)
+        a, R = self._calc_aR(G=G)
         f, q = _calc_predictive_mean_and_var(F=F, a=a, R=R, s=self.v)
         return f, q
 
@@ -329,7 +336,7 @@ class Analysis():
                 F=F, a=ak, R=Rk, s=self.v)
 
             # Append results
-            dict_kstep_forecast['t'].append(t)
+            dict_kstep_forecast['t'].append(t+1)
             dict_kstep_forecast['f'].append(np.ravel(f)[0])
             dict_kstep_forecast['q'].append(np.ravel(q)[0])
 
@@ -345,41 +352,37 @@ class Analysis():
             entry_m="a", entry_v="R",
             names_parameters=self.names_parameters)
 
-        dlm_lb = list(np.repeat('dlm', len(self.dlm.m)))
-        arm_lb = list(np.repeat('arm', len(self.arm.m)))
-        tfm_lb = list(np.repeat(
-            ['tfm_' + str(i + 1) for i in range(self.tfm.ntfm)],
-            2 * self.tfm.order + 1))
+        # Create model labels
+        df_predict_aR["mod"] = create_mod_label_column(mod=self, t=k)
 
-        mod_lb = k * (dlm_lb + arm_lb + tfm_lb)
-        df_predict_aR["mod"] = mod_lb
-
-        n_parms = len(df_predict_aR[["parameter", "mod"]].drop_duplicates())
-        t_index = np.arange(0, len(df_predict_aR) / n_parms) + 1
-        df_predict_aR["t"] = np.repeat(t_index, n_parms)
+        # Add time column on posterior_df
+        t_index = np.arange(1, k+1)
+        df_predict_aR["t"] = np.repeat(t_index, self.p)
         df_predict_aR["t"] = df_predict_aR["t"].astype(int)
 
+        # Round variance
+        df_predict_aR["variance"] = df_predict_aR["variance"].round(10)
+        df_predictive["q"] = df_predictive["q"].round(10)
+
         # Compute credible intervals
-        df_predict_aR["ci_lower"] = stats.t.ppf(
-            q=level/2, df=self.t + 1,
-            loc=df_predict_aR["mean"].values,
-            scale=np.sqrt(df_predict_aR["variance"].values) + 10e-300)
-        df_predict_aR["ci_upper"] = stats.t.ppf(
-            q=1-level/2, df=self.t + 1,
-            loc=df_predict_aR["mean"].values,
-            scale=np.sqrt(df_predict_aR["variance"].values) + 10e-300)
+        df_predict_aR = add_credible_interval_studentt(
+            pd_df=df_predict_aR, entry_m="mean",
+            entry_v="variance", level=.05)
 
-        df_predictive["ci_lower"] = stats.t.ppf(
-            q=level/2, df=self.t + 1,
-            loc=df_predictive["f"].values,
-            scale=np.sqrt(df_predictive["q"].values) + 10e-300)
-        df_predictive["ci_upper"] = stats.t.ppf(
-            q=1-level/2, df=self.t + 1,
-            loc=df_predictive["f"].values,
-            scale=np.sqrt(df_predictive["q"].values) + 10e-300)
+        df_predictive = add_credible_interval_studentt(
+            pd_df=df_predictive, entry_m="f",
+            entry_v="q", level=.05)
 
-        dict_results = {'filter': df_predictive, 'parameters': df_predict_aR}
+        # Creat dict of results
+        dict_results = {'predictive': df_predictive,
+                        'parameters': df_predict_aR}
         return dict_results
+
+    def _build_F(self, X: dict = {}):
+        F_dlm = self.dlm._update_F(x=X.get('dlm'))
+        F = np.vstack((F_dlm, self.arm.F, self.tfm.F))
+
+        return F
 
     def _build_G(self, X: dict):
         G_dlm = self.dlm.G
@@ -428,14 +431,13 @@ class Analysis():
 
         return h
 
-    def _calc_aR(self, X: dict):
-        G = self._build_G(X=X)
+    def _calc_aR(self, G: np.matrix):
         W = self._build_W(G=G)
         h = self._build_h(G=G)
 
         a = G @ self.m + h
         P = G @ self.C @ G.T
-        R = P + W
+        R = (P + W)
 
         return a, R
 
@@ -457,28 +459,25 @@ class Analysis():
 
         """
         self.t += 1
+        self.F = self._build_F(X=X)
+        self.G = self._build_G(X=X)
+        self.h = self._build_h(G=self.G)
 
         if y is None or np.isnan(y):
             self.m = self.a
             self.C = self.R
 
             # Get priors a, R for time t + 1 from the posteriors m, C
-            G = self._build_G(X=X)
-            h = self._build_h(G=G)
-
-            self.a = G @ self.m + h
-            self.R = G @ self.C @ self.G.T
+            self.a = self.G @ self.m + self.h
+            self.R = self.G @ self.C @ self.G.T
         else:
-            self.dlm.F = self.dlm._update_F(x=X.get('dlm'))
-            self.F = np.vstack((self.dlm.F, self.arm.F, self.tfm.F))
-
             # Need a better solution for this!
             if self.arm.order > 0:
                 self.v = 0
             else:
                 self.v = self.s
 
-            a, R = self._calc_aR(X=X)
+            a, R = self._calc_aR(G=self.G)
             f, q = _calc_predictive_mean_and_var(F=self.F, a=a, R=R, s=self.v)
 
             A = (R @ self.F) / q
