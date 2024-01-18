@@ -1,7 +1,9 @@
 """Utils functions."""
-from typing import List
 import numpy as np
 import pandas as pd
+from scipy import stats
+from typing import List
+from scipy import stats
 
 
 def tidy_parameters(dict_parameters: dict, entry_m: str, entry_v: str,
@@ -108,3 +110,61 @@ def tidy_parameters(dict_parameters: dict, entry_m: str, entry_v: str,
     df_state_parameters.rename(columns={"index": "parameter"}, inplace=True)
 
     return df_state_parameters[["parameter", "mean", "variance"]]
+
+
+def set_X_dict(nobs: int, X: dict = {}):
+    copy_X = X.copy()
+
+    # Organize transfer function values
+    if X.get('dlm') is None:
+        x = np.array([None]*(nobs+1)).reshape(-1, 1)
+        copy_X['dlm'] = x
+
+    if X.get('tfm') is None:
+        z = np.array([None]*(nobs+1)).reshape(-1, 1)
+        copy_X['tfm'] = z
+
+    return copy_X
+
+
+def add_credible_interval_studentt(
+        pd_df: pd.DataFrame,
+        entry_m: str,
+        entry_v: str,
+        level=float):
+    df = pd_df["t"].values + 1
+    mu = pd_df[entry_m].values
+    sigma = np.sqrt(pd_df[entry_v].values + 10e-300)
+
+    # Calculate intervals
+    pd_df["ci_lower"] = stats.t.ppf(q=level/2, df=df, loc=mu, scale=sigma)
+    pd_df["ci_upper"] = stats.t.ppf(q=1-level/2, df=df, loc=mu, scale=sigma)
+
+    return pd_df
+
+
+def add_credible_interval_gamma(
+        pd_df: pd.DataFrame,
+        entry_a: str,
+        entry_b: str,
+        level=float):
+    a = 1 / pd_df[entry_a].values
+    b = pd_df[entry_b].values + 10e-300
+
+    # Calculate intervals
+    pd_df["ci_lower"] = stats.gamma.ppf(q=level/2, a=a, scale=b)
+    pd_df["ci_upper"] = stats.gamma.ppf(q=1-level/2, a=a, scale=b)
+
+    return pd_df
+
+
+def create_mod_label_column(mod, t: int):
+    dlm_lb = list(np.repeat('dlm', len(mod.dlm.m)))
+    arm_lb = list(np.repeat('arm', len(mod.arm.m)))
+    tfm_lb = list(np.repeat(
+        ['tfm_' + str(i + 1) for i in range(mod.tfm.ntfm)],
+        2 * mod.tfm.order + 1))
+
+    mod_lb = t * (dlm_lb + arm_lb + tfm_lb)
+
+    return mod_lb
