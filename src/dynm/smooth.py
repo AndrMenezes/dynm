@@ -49,7 +49,7 @@ def _backward_smoother(mod, X: dict = {}, level: float = 0.05):
     Rk = C[nobs-1]
     fk = FT.T @ ak
     qk = (FT.T @ Rk @ FT).round(10)
-    dict_smooth_parms = {
+    dict_smooth_params = {
         "t": [nobs],
         "ak": [ak],
         "Rk": [Rk],
@@ -77,22 +77,22 @@ def _backward_smoother(mod, X: dict = {}, level: float = 0.05):
         qk = (Fk.T @ Rk @ Fk).round(10)
 
         # Saving parameters
-        dict_smooth_parms["ak"].append(ak)
-        dict_smooth_parms["Rk"].append(Rk)
-        dict_smooth_parms["fk"].append(fk.item())
-        dict_smooth_parms["qk"].append(qk.item())
-        dict_smooth_parms["t"].append(nobs-k)
+        dict_smooth_params["ak"].append(ak)
+        dict_smooth_params["Rk"].append(Rk)
+        dict_smooth_params["fk"].append(fk.item())
+        dict_smooth_params["qk"].append(qk.item())
+        dict_smooth_params["t"].append(nobs-k)
 
-    mod.dict_smooth_parms = dict_smooth_parms
+    mod.dict_smooth_params = dict_smooth_params
 
     # Organize the predictive smooth parameters
-    dict_filter = {key: dict_smooth_parms[key] for key in (
-        dict_smooth_parms.keys() & {"t", "fk", "qk", "df"})}
+    dict_filter = {key: dict_smooth_params[key] for key in (
+        dict_smooth_params.keys() & {"t", "fk", "qk", "df"})}
     df_predictive = pd.DataFrame(dict_filter)
 
     # Organize the posterior parameters
     df_posterior = tidy_parameters(
-        dict_parameters=dict_smooth_parms,
+        dict_parameters=dict_smooth_params,
         entry_m="ak", entry_v="Rk",
         names_parameters=mod.names_parameters)
 
