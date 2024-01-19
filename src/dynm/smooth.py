@@ -83,6 +83,8 @@ def _backward_smoother(mod, X: dict = {}, level: float = 0.05):
         dict_smooth_parms["qk"].append(qk.item())
         dict_smooth_parms["t"].append(nobs-k)
 
+    mod.dict_smooth_parms = dict_smooth_parms
+
     # Organize the predictive smooth parameters
     dict_filter = {key: dict_smooth_parms[key] for key in (
         dict_smooth_parms.keys() & {"t", "fk", "qk", "df"})}
