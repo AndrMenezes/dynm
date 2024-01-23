@@ -78,8 +78,7 @@ class TestAnalysisARTF(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict, V=sd_y**2)
-        fit_results = mod.fit(y=y, X=X)
+        mod = Analysis(model_dict=model_dict, V=sd_y**2).fit(y=y, X=X)
         m = mod.m
 
         self.assertTrue(np.abs(m[2] - phi_1) < .1)
@@ -97,8 +96,7 @@ class TestAnalysisARTF(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict)
-        fit_results = mod.fit(y=y, X=X, smooth=True)
+        mod = Analysis(model_dict=model_dict).fit(y=y, X=X, smooth=True)
         m = mod.m
 
         self.assertTrue(np.abs(m[2] - phi_1) < .25)
@@ -119,10 +117,8 @@ class TestAnalysisARTF(unittest.TestCase):
         copy_y[50] = np.nan
 
         # Fit
-        mod = Analysis(model_dict=model_dict)
-        fit_results = mod.fit(y=copy_y, X=X)
-
-        forecast_df = fit_results.get('predictive')
+        mod = Analysis(model_dict=model_dict).fit(y=copy_y, X=X)
+        forecast_df = mod.dict_filter.get('predictive')
         m = mod.m
 
         self.assertTrue(np.abs(m[2] - phi_1) < .25)
@@ -148,8 +144,7 @@ class TestAnalysisARTF(unittest.TestCase):
         te__X = {'tfm': x.reshape(-1, 1)[450:]}
 
         # Fit
-        mod = Analysis(model_dict=model_dict)
-        fit_results = mod.fit(y=tr__y, X=tr__X)
+        mod = Analysis(model_dict=model_dict).fit(y=tr__y, X=tr__X)
 
         # Forecasting
         forecast_results = mod._k_steps_a_head_forecast(k=50, X=te__X)
@@ -172,8 +167,7 @@ class TestAnalysisARTF(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict)
-        fit_results = mod.fit(y=y, X=X)
+        mod = Analysis(model_dict=model_dict).fit(y=y, X=X)
 
         # Forecasting
         Xte = {'tfm': np.array([[1]])}
@@ -197,9 +191,8 @@ class TestAnalysisARTF(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict)
-        smooth_posterior = mod.fit(y=y, X=X, smooth=True)\
-            .get('smooth').get('posterior')
+        mod = Analysis(model_dict=model_dict).fit(y=y, X=X, smooth=True)
+        smooth_posterior = mod.dict_smooth.get('posterior')
 
         min_var = smooth_posterior.variance.min()
         self.assertTrue(min_var >= 0.0)
@@ -213,11 +206,10 @@ class TestAnalysisARTF(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict)
-        smooth_predictive = mod.fit(y=y, X=X, smooth=True)\
-            .get('smooth').get('predictive')
+        mod = Analysis(model_dict=model_dict).fit(y=y, X=X, smooth=True)
+        smooth_predictive = mod.dict_smooth.get('predictive')
 
-        min_var = smooth_predictive.qk.min()
+        min_var = smooth_predictive.q.min()
         self.assertTrue(min_var >= 0.0)
 
     def test__smoothed_predictive_errors(self):
@@ -230,19 +222,18 @@ class TestAnalysisARTF(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict)
-        fit_results = mod.fit(y=y, X=X, smooth=True)
+        mod = Analysis(model_dict=model_dict).fit(y=y, X=X, smooth=True)
 
-        filter_predictive = fit_results\
-            .get('filter').get('predictive')\
+        filter_predictive = mod\
+            .dict_filter.get('predictive')\
             .sort_values('t')
 
-        smooth_predictive = fit_results\
-            .get('smooth').get('predictive')\
+        smooth_predictive = mod\
+            .dict_smooth.get('predictive')\
             .sort_values('t')
 
         f = filter_predictive.f.values
-        fk = smooth_predictive.fk.values
+        fk = smooth_predictive.f.values
 
         mse1 = np.mean((f-y)**2)
         mse2 = np.mean((fk-y)**2)
