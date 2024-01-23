@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 from typing import List
-from scipy import stats
 
 
 def tidy_parameters(dict_parameters: dict, entry_m: str, entry_v: str,
@@ -168,3 +167,97 @@ def create_mod_label_column(mod, t: int):
     mod_lb = t * (dlm_lb + arm_lb + tfm_lb)
 
     return mod_lb
+
+
+def summary(mod):
+    nobs = mod.t
+
+    # Return last time posterior parameters
+    print_filter_tab = mod.dict_filter\
+        .get('posterior').query("t==@nobs").copy()\
+        .reset_index(drop=True)
+
+    # Get log-likelihood
+    predictive_df = mod.dict_filter.get('predictive')
+    y = predictive_df.y.values
+    f = predictive_df.f.values
+    q = np.sqrt(predictive_df.q.values)
+    t = predictive_df.t.values
+
+    llk = np.log(np.sum(stats.t.pdf(x=y, df=t+1, loc=f, scale=q)))
+
+    # Print the summary
+    summary = "Bayesian Dynamic Linear Model Results\n\n"
+    summary += f"Posterior parameters estimate at time {nobs}\n\n"
+    summary += str(print_filter_tab) + "\n\n"
+    summary += f"Predictive log-likelihood {llk}\n\n"
+
+    # Return both the results and the captured output
+    return summary
+
+
+def _build_predictive_df(mod, dict_predict: dict, level: float):
+    df_predictive = pd.DataFrame(dict_predict)
+
+    # Compute credible intervals
+    df_predictive = add_credible_interval_studentt(
+        pd_df=df_predictive, entry_m="f",
+        entry_v="q", level=.05)
+
+    return df_predictive
+
+
+def _build_posterior_df(
+        mod,
+        dict_posterior: dict,
+        t: int,
+        level: float,
+        smooth: bool = False):
+    # Organize the posterior parameters
+    df_posterior = tidy_parameters(
+        dict_parameters=dict_posterior,
+        entry_m="a", entry_v="R",
+        names_parameters=mod.names_parameters)
+
+    # Create model labels
+    df_posterior["mod"] = create_mod_label_column(mod=mod, t=t)
+
+    # Add time column on posterior_df
+    if smooth:
+        t_index = mod.t - np.arange(0, mod.t)
+    else:
+        t_index = np.arange(1, t+1)
+
+    df_posterior["t"] = np.repeat(t_index, mod.p)
+    df_posterior["t"] = df_posterior["t"].astype(int)
+
+    # Round variance
+    df_posterior["variance"] = df_posterior["variance"].round(10)
+
+    # Compute credible intervals
+    df_posterior = add_credible_interval_studentt(
+        pd_df=df_posterior, entry_m="mean",
+        entry_v="variance", level=.05)
+
+    return df_posterior
+
+
+def _build_variance_df(
+        mod,
+        dict_observation_var: dict,
+        level: float):
+
+    # Organize observational variance
+    df_var = pd.DataFrame(dict_observation_var)\
+        .assign(
+            variance=lambda x: x.d / (x.n ** 2),
+            parameter="V",
+            mod="gamma"
+    )
+
+    # Organize observational variance
+    df_var = add_credible_interval_gamma(
+        pd_df=df_var, entry_a="n", entry_b="d", level=level)
+    df_var.drop(['d', 'n'], axis=1, inplace=True)
+
+    return df_var

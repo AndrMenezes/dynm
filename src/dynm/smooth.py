@@ -1,8 +1,6 @@
 """Smoothing for Dynamic Linear Models."""
 import numpy as np
-import pandas as pd
-from dynm.utils import tidy_parameters, set_X_dict
-from dynm.utils import create_mod_label_column, add_credible_interval_studentt
+from dynm.utils import _build_predictive_df, _build_posterior_df,  set_X_dict
 
 
 def _backward_smoother(mod, X: dict = {}, level: float = 0.05):
@@ -51,10 +49,10 @@ def _backward_smoother(mod, X: dict = {}, level: float = 0.05):
     qk = (FT.T @ Rk @ FT).round(10)
     dict_smooth_params = {
         "t": [nobs],
-        "ak": [ak],
-        "Rk": [Rk],
-        "fk": [fk.item()],
-        "qk": [qk.item()]}
+        "a": [ak],
+        "R": [Rk],
+        "f": [fk.item()],
+        "q": [qk.item()]}
 
     # Perform smoothing
     for k in range(1, nobs):
@@ -77,47 +75,32 @@ def _backward_smoother(mod, X: dict = {}, level: float = 0.05):
         qk = (Fk.T @ Rk @ Fk).round(10)
 
         # Saving parameters
-        dict_smooth_params["ak"].append(ak)
-        dict_smooth_params["Rk"].append(Rk)
-        dict_smooth_params["fk"].append(fk.item())
-        dict_smooth_params["qk"].append(qk.item())
+        dict_smooth_params["a"].append(ak)
+        dict_smooth_params["R"].append(Rk)
+        dict_smooth_params["f"].append(fk.item())
+        dict_smooth_params["q"].append(qk.item())
         dict_smooth_params["t"].append(nobs-k)
-
-    mod.dict_smooth_params = dict_smooth_params
 
     # Organize the predictive smooth parameters
     dict_filter = {key: dict_smooth_params[key] for key in (
-        dict_smooth_params.keys() & {"t", "fk", "qk", "df"})}
-    df_predictive = pd.DataFrame(dict_filter)
+        dict_smooth_params.keys() & {"t", "f", "q", "df"})}
 
-    # Organize the posterior parameters
-    df_posterior = tidy_parameters(
-        dict_parameters=dict_smooth_params,
-        entry_m="ak", entry_v="Rk",
-        names_parameters=mod.names_parameters)
+    # Get posterior and predictive dataframes
+    df_predictive = _build_predictive_df(
+        mod=mod, dict_predict=dict_filter, level=level)
 
-    # Create model labels
-    df_posterior["mod"] = create_mod_label_column(mod=mod, t=mod.t)
-
-    # Add time column on posterior_df
-    t_index = mod.t - np.arange(0, mod.t)
-    df_posterior["t"] = np.repeat(t_index, mod.p)
-    df_posterior["t"] = df_posterior["t"].astype(int)
-
-    # Round variance
-    df_posterior["variance"] = df_posterior["variance"].round(10)
-    df_predictive["qk"] = df_predictive["qk"].round(10)
-
-    # Compute credible intervals
-    df_posterior = add_credible_interval_studentt(
-        pd_df=df_posterior, entry_m="mean",
-        entry_v="variance", level=.05)
-
-    df_predictive = add_credible_interval_studentt(
-        pd_df=df_predictive, entry_m="fk",
-        entry_v="qk", level=.05)
+    df_posterior = _build_posterior_df(
+        mod=mod,
+        dict_posterior=dict_smooth_params,
+        t=nobs,
+        level=level)
 
     # Creat dict of results
-    dict_results = {'predictive': df_predictive, 'posterior': df_posterior}
+    smooth_dict = {'predictive': df_predictive, 'posterior': df_posterior}
 
-    return dict_results
+    return_dict = {
+        "smooth": smooth_dict,
+        "smooth_params": dict_smooth_params
+    }
+
+    return return_dict

@@ -2,16 +2,18 @@
 import numpy as np
 import pandas as pd
 from dynm.dlm import DLM
-from dynm.utils import tidy_parameters, create_mod_label_column
-from dynm.utils import add_credible_interval_studentt
-from dynm.utils import add_credible_interval_gamma
 from dynm.algebra import _calc_predictive_mean_and_var
 from dynm.dlm_nullmodel import NullModel
 from dynm.dlm_autoregressive import AutoRegressive
 from dynm.dlm_transfer_function import TransferFunction
-from dynm.smooth import _backward_smoother
+from dynm.utils import tidy_parameters, create_mod_label_column
+from dynm.utils import add_credible_interval_studentt
 from scipy.linalg import block_diag
+from dynm.filter import _foward_filter
+from dynm.smooth import _backward_smoother
+from dynm.utils import summary
 from copy import copy
+from dynm.utils import _build_predictive_df, _build_posterior_df, set_X_dict
 
 
 class Analysis():
@@ -185,107 +187,21 @@ class Analysis():
             Description of returned object.
 
         """
-        nobs = len(y)
-        dict_1step_forecast = {'t': [], 'y': [], 'f': [], 'q': []}
-        dict_observation_var = {'t': [], 'd': [], 'n': [], 'mean': []}
-        dict_state_params = {'m': [], 'C': [], 'a': [], 'R': []}
-        dict_state_evolution = {'G': []}
-        Xt = {'dlm': [], 'tfm': []}
-        copy_X = X.copy()
-
-        if X.get('dlm') is None:
-            x = np.array([None]*(nobs+1)).reshape(-1, 1)
-            copy_X['dlm'] = x
-
-        if X.get('tfm') is None:
-            z = np.array([None]*(nobs+1)).reshape(-1, 1)
-            copy_X['tfm'] = z
-
-        for t in range(nobs):
-            # Predictive distribution moments
-            Xt['dlm'] = copy_X['dlm'][t, :]
-            Xt['tfm'] = copy_X['tfm'][t, :]
-            f, q = self._forecast(X=Xt)
-
-            # Append results
-            dict_1step_forecast['t'].append(t+1)
-            dict_1step_forecast['y'].append(y[t])
-            dict_1step_forecast['f'].append(np.ravel(f)[0])
-            dict_1step_forecast['q'].append(np.ravel(q)[0])
-
-            # Update model
-            self.update(y=y[t], X=Xt)
-
-            # Dict state params
-            dict_state_params["a"].append(self.a)
-            dict_state_params["R"].append(self.R)
-            dict_state_params["m"].append(self.m)
-            dict_state_params["C"].append(self.C)
-
-            # State evolution matrix
-            dict_state_evolution['G'].append(self.G)
-
-            # Observational variance
-            dict_observation_var['t'].append(t+1)
-            dict_observation_var['d'].append(np.ravel(self.d)[0])
-            dict_observation_var['n'].append(np.ravel(self.n)[0])
-            dict_observation_var['mean'].append(np.ravel(self.s)[0])
-
-        self.dict_state_params = dict_state_params
-        self.dict_state_evolution = dict_state_evolution
-        df_predictive = pd.DataFrame(dict_1step_forecast)
-
-        # Organize the posterior parameters
-        df_posterior = tidy_parameters(
-            dict_parameters=dict_state_params,
-            entry_m="m", entry_v="C",
-            names_parameters=self.names_parameters)
-
-        # Create model labels
-        df_posterior["mod"] = create_mod_label_column(mod=self, t=self.t)
-
-        # Add time column on posterior_df
-        t_index = np.arange(1, self.t + 1)
-        df_posterior["t"] = np.repeat(t_index, self.p)
-        df_posterior["t"] = df_posterior["t"].astype(int)
-
-        # Organize observational variance
-        df_var = pd.DataFrame(dict_observation_var)\
-            .assign(
-                variance=lambda x: x.d / (x.n ** 2),
-                parameter="V",
-                mod="gamma"
-        )
-
-        # Round variance
-        df_posterior["variance"] = df_posterior["variance"].round(10)
-        df_predictive["q"] = df_predictive["q"].round(10)
-
-        # Compute credible intervals
-        df_posterior = add_credible_interval_studentt(
-            pd_df=df_posterior, entry_m="mean",
-            entry_v="variance", level=level)
-
-        df_predictive = add_credible_interval_studentt(
-            pd_df=df_predictive, entry_m="f",
-            entry_v="q", level=level)
-
-        df_var = add_credible_interval_gamma(
-            pd_df=df_var, entry_a="n", entry_b="d", level=level)
-
-        # Combine parameters results
-        df_var.drop(['d', 'n'], axis=1, inplace=True)
-        df_posterior = pd.concat([df_posterior, df_var])
-
-        # Creat dict of results
-        filter_dict = {'predictive': df_predictive, 'posterior': df_posterior}
+        # Fit
+        foward_dict = _foward_filter(mod=self, y=y, X=X, level=level)
+        self.dict_filter = copy(foward_dict.get('filter'))
+        self.dict_state_params = copy(foward_dict.get('state_params'))
+        self.dict_state_evolution = copy(foward_dict.get('state_evolution'))
 
         if smooth:
-            smooth_dict = _backward_smoother(mod=self)
-            dict_results = {'filter': filter_dict, 'smooth': smooth_dict}
-            return dict_results
-        else:
-            return filter_dict
+            backward_dict = _backward_smoother(mod=self, X=X, level=level)
+            self.dict_smooth = copy(backward_dict.get('smooth'))
+            self.dict_smooth_params = copy(backward_dict.get('smooth_params'))
+        return self
+
+    def summary(self):
+        str_summary = summary(mod=self)
+        return str_summary
 
     def _forecast(self, X: dict = {}):
         F = self._build_F(X=X)
@@ -295,8 +211,11 @@ class Analysis():
         f, q = _calc_predictive_mean_and_var(F=F, a=a, R=R, s=self.v)
         return f, q
 
-    def _k_steps_a_head_forecast(self, k: int, X: dict = {},
-                                 level: float = 0.05):
+    def _k_steps_a_head_forecast(
+            self,
+            k: int,
+            X: dict = {},
+            level: float = 0.05):
         ak = copy(self.m)
         Rk = copy(self.C)
 
@@ -304,16 +223,7 @@ class Analysis():
         dict_kstep_forecast = {'t': [], 'f': [], 'q': []}
 
         Xt = {'dlm': [], 'tfm': []}
-        copy_X = X.copy()
-
-        # Organize transfer function values
-        if X.get('dlm') is None:
-            x = np.array([None]*(k+1)).reshape(-1, 1)
-            copy_X['dlm'] = x
-
-        if X.get('tfm') is None:
-            z = np.array([None]*(k+1)).reshape(-1, 1)
-            copy_X['tfm'] = z
+        copy_X = set_X_dict(nobs=k, X=X)
 
         # K steps-a-head forecast
         for t in range(k):
@@ -346,32 +256,15 @@ class Analysis():
 
         df_predictive = pd.DataFrame(dict_kstep_forecast)
 
-        # Organize the posterior parameters
-        df_predict_aR = tidy_parameters(
-            dict_parameters=dict_state_params,
-            entry_m="a", entry_v="R",
-            names_parameters=self.names_parameters)
+        # Get posterior and predictive dataframes
+        df_predictive = _build_predictive_df(
+            mod=self, dict_predict=dict_kstep_forecast, level=level)
 
-        # Create model labels
-        df_predict_aR["mod"] = create_mod_label_column(mod=self, t=k)
-
-        # Add time column on posterior_df
-        t_index = np.arange(1, k+1)
-        df_predict_aR["t"] = np.repeat(t_index, self.p)
-        df_predict_aR["t"] = df_predict_aR["t"].astype(int)
-
-        # Round variance
-        df_predict_aR["variance"] = df_predict_aR["variance"].round(10)
-        df_predictive["q"] = df_predictive["q"].round(10)
-
-        # Compute credible intervals
-        df_predict_aR = add_credible_interval_studentt(
-            pd_df=df_predict_aR, entry_m="mean",
-            entry_v="variance", level=.05)
-
-        df_predictive = add_credible_interval_studentt(
-            pd_df=df_predictive, entry_m="f",
-            entry_v="q", level=.05)
+        df_predict_aR = _build_posterior_df(
+            mod=self,
+            dict_posterior=dict_state_params,
+            t=k,
+            level=level)
 
         # Creat dict of results
         dict_results = {'predictive': df_predictive,
