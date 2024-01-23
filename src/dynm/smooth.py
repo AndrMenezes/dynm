@@ -93,7 +93,8 @@ def _backward_smoother(mod, X: dict = {}, level: float = 0.05):
         mod=mod,
         dict_posterior=dict_smooth_params,
         t=nobs,
-        level=level)
+        level=level,
+        smooth=True)
 
     # Creat dict of results
     smooth_dict = {'predictive': df_predictive, 'posterior': df_posterior}
