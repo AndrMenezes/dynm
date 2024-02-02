@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from dynm.utils import _build_predictive_df, _build_posterior_df,  set_X_dict
 from dynm.utils import _build_variance_df
+from scipy import stats
 
 
 def _foward_filter(mod,

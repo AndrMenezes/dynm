@@ -6,14 +6,13 @@ from dynm.algebra import _calc_predictive_mean_and_var
 from dynm.dlm_nullmodel import NullModel
 from dynm.dlm_autoregressive import AutoRegressive
 from dynm.dlm_transfer_function import TransferFunction
-from dynm.utils import tidy_parameters, create_mod_label_column
-from dynm.utils import add_credible_interval_studentt
 from scipy.linalg import block_diag
 from dynm.filter import _foward_filter
 from dynm.smooth import _backward_smoother
 from dynm.utils import summary
 from copy import copy
 from dynm.utils import _build_predictive_df, _build_posterior_df, set_X_dict
+from dynm.utils import get_predictive_log_likelihood
 
 
 class Analysis():
@@ -197,6 +196,9 @@ class Analysis():
             backward_dict = _backward_smoother(mod=self, X=X, level=level)
             self.dict_smooth = copy(backward_dict.get('smooth'))
             self.dict_smooth_params = copy(backward_dict.get('smooth_params'))
+
+        self.llk = get_predictive_log_likelihood(mod=self)
+
         return self
 
     def summary(self):
