@@ -1,8 +1,9 @@
+"""Filtering for Dynamic Linear Models."""
 import numpy as np
 import pandas as pd
-from dynm.utils import _build_predictive_df, _build_posterior_df,  set_X_dict
-from dynm.utils import _build_variance_df
-from scipy import stats
+from dynm.utils.format_result import _build_predictive_df, _build_posterior_df
+from dynm.utils.format_result import _build_variance_df
+from dynm.utils.format_input import set_X_dict
 
 
 def _foward_filter(mod,
@@ -32,12 +33,12 @@ def _foward_filter(mod,
     dict_state_evolution = {'G': []}
 
     Xt = {'dlm': [], 'tfm': []}
-    copy_X = set_X_dict(nobs=nobs, X=X)
+    copy_X = set_X_dict(mod=mod, nobs=nobs, X=X)
 
     for t in range(nobs):
         # Predictive distribution moments
         Xt['dlm'] = copy_X['dlm'][t, :]
-        Xt['tfm'] = copy_X['tfm'][t, :]
+        Xt['tfm'] = copy_X['tfm'][t, :, :]
         f, q = mod._forecast(X=Xt)
 
         # Append results

@@ -2,6 +2,7 @@
 import numpy as np
 import unittest
 from dynm.analysis import Analysis
+from dynm.utils.format_input import compute_lagged_values
 from copy import copy
 
 # Simulating the data
@@ -89,16 +90,19 @@ C0 = np.identity(10) * 9
 
 tfm_del = np.repeat(.995, 10)
 
+x = compute_lagged_values(X=x, lags=1)
 X = {'tfm': x}
 
 
-class TestAnalysisTF(unittest.TestCase):
+class TestMultipleTransferFunction(unittest.TestCase):
     """Tests Analysis results for Transfer Function Model."""
 
     def test__estimates_known_W(self):
         """Test parameters estimation with know W."""
         model_dict = {
-            'tfm': {'m0': m0, 'C0': C0, 'order': 2, "W": W, "ntfm": 2}
+            'tfm': {'m0': m0, 'C0': C0,
+                    'gamma_order': 1, 'lambda_order': 2,
+                    "W": W, "ntfm": 2}
         }
 
         # Fit
@@ -115,8 +119,8 @@ class TestAnalysisTF(unittest.TestCase):
     def test__estimates_discount(self):
         """Test parameters estimation with discount."""
         model_dict = {
-            'tfm': {'m0': m0, 'C0': C0, 'order': 2, "ntfm": 2,
-                    "del": np.repeat(1, 10)}
+            'tfm': {'m0': m0, 'C0': C0, 'gamma_order': 1, 'lambda_order': 2,
+                    "ntfm": 2, "del": np.repeat(1, 10)}
         }
 
         # Fit
@@ -133,8 +137,8 @@ class TestAnalysisTF(unittest.TestCase):
     def test__analysis_with_nan(self):
         """Test parameters estimation with nan in y."""
         model_dict = {
-            'tfm': {'m0': m0, 'C0': C0, 'order': 2, "ntfm": 2,
-                    "del": np.repeat(1, 10)}
+            'tfm': {'m0': m0, 'C0': C0, 'gamma_order': 1, 'lambda_order': 2,
+                    "ntfm": 2, "del": np.repeat(1, 10)}
         }
 
         copy_y = copy(y)
@@ -156,16 +160,16 @@ class TestAnalysisTF(unittest.TestCase):
     def test__k_steps_ahead_forecast_performance(self):
         """Test k steps a head performance."""
         model_dict = {
-            'tfm': {'m0': m0, 'C0': C0, 'order': 2, "ntfm": 2,
-                    "del": np.repeat(1, 10)}
+            'tfm': {'m0': m0, 'C0': C0, 'gamma_order': 1, 'lambda_order': 2,
+                    "ntfm": 2, "del": np.repeat(1, 10)}
         }
 
         # Insample and outsample sets
         tr__y = y[:450]
         te__y = y[450:]
 
-        tr__X = {'tfm': x[:450, :]}
-        te__X = {'tfm': x[450:, :]}
+        tr__X = {'tfm': x[:450, :, :]}
+        te__X = {'tfm': x[450:, :, :]}
 
         # Fit
         mod = Analysis(model_dict=model_dict).fit(y=tr__y, X=tr__X)
@@ -185,22 +189,24 @@ class TestAnalysisTF(unittest.TestCase):
     def test__k_steps_ahead_forecast_values(self):
         """Test k steps a head performance."""
         model_dict = {
-            'tfm': {'m0': m0, 'C0': C0, 'order': 2, "ntfm": 2,
-                    "del": np.repeat(1, 10)}
+            'tfm': {'m0': m0, 'C0': C0, 'gamma_order': 1, 'lambda_order': 2,
+                    "ntfm": 2, "del": np.repeat(1, 10)}
         }
 
         # Fit
         mod = Analysis(model_dict=model_dict).fit(y=y, X=X)
 
         # Forecasting
-        Xte = {'tfm': X.get('tfm')[40, :]}
-        f, q = mod._forecast(X=Xte)
+        xte_2d = np.array([1, 1]).reshape(2, 1)
+        xte_3d = np.array([1, 1]).reshape(1, 2, 1)
 
-        reshape_Xte = {'tfm': X.get('tfm')[40, :].reshape(-1, 2)}
+        Xte_2d = {'tfm': xte_2d}
+        Xte_3d = {'tfm': xte_3d}
+        f, q = mod._forecast(X=Xte_2d)
+
         forecast_df = mod\
-            ._k_steps_a_head_forecast(k=1, X=reshape_Xte)\
+            ._k_steps_a_head_forecast(k=1, X=Xte_3d)\
             .get('predictive')
-
         fk = forecast_df.f.values
         qk = forecast_df.q.values
 
@@ -210,8 +216,8 @@ class TestAnalysisTF(unittest.TestCase):
     def test__smoothed_posterior_variance(self):
         """Test smooth posterior variance."""
         model_dict = {
-            'tfm': {'m0': m0, 'C0': C0, 'order': 2, "ntfm": 2,
-                    "del": np.repeat(1, 10)}
+            'tfm': {'m0': m0, 'C0': C0, 'gamma_order': 1, 'lambda_order': 2,
+                    "ntfm": 2, "del": np.repeat(1, 10)}
         }
 
         # Fit
@@ -224,8 +230,8 @@ class TestAnalysisTF(unittest.TestCase):
     def test__smoothed_predictive_variance(self):
         """Test smooth predictive variance."""
         model_dict = {
-            'tfm': {'m0': m0, 'C0': C0, 'order': 2, "ntfm": 2,
-                    "del": np.repeat(1, 10)}
+            'tfm': {'m0': m0, 'C0': C0, 'gamma_order': 1, 'lambda_order': 2,
+                    "ntfm": 2, "del": np.repeat(1, 10)}
         }
 
         # Fit
@@ -238,8 +244,8 @@ class TestAnalysisTF(unittest.TestCase):
     def test__smoothed_predictive_errors(self):
         """Test smooth predictive mape."""
         model_dict = {
-            'tfm': {'m0': m0, 'C0': C0, 'order': 2, "ntfm": 2,
-                    "del": np.repeat(1, 10)}
+            'tfm': {'m0': m0, 'C0': C0, 'gamma_order': 1, 'lambda_order': 2,
+                    "ntfm": 2, "del": np.repeat(1, 10)}
         }
 
         # Fit

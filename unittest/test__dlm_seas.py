@@ -45,8 +45,8 @@ W = np.identity(5) * 0
 np.fill_diagonal(C0, val=[9, 9, 9, 9, 9])
 
 
-class TestAnalysisAR(unittest.TestCase):
-    """Tests Analysis results for AutoRegressive Model."""
+class TestDLM(unittest.TestCase):
+    """Tests Analysis results for Dynamic Linear Model."""
 
     def test__estimates_known_W_and_V(self):
         """Test parameters estimation with know W and V."""

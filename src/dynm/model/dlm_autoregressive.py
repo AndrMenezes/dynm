@@ -1,8 +1,8 @@
 """Utils functions."""
 import numpy as np
 import copy
-from dynm.algebra import _calc_predictive_mean_and_var, _calc_aR
-from dynm.algebra import _build_Gnonlinear, _build_W
+from dynm.utils.algebra import _calc_predictive_mean_and_var, _calc_aR
+from dynm.utils.algebra import _build_Gnonlinear, _build_W
 
 
 class AutoRegressive():

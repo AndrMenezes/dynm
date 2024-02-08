@@ -48,7 +48,8 @@ def _build_Gnonlinear(m: np.array, order: int):
     nonlinear_block = np.block([[decay_block, response_block],
                                [diag_decay_block, diag_response_block],
                                [0 * diag_order, diag_order]])
-    nonlinear_block = nonlinear_block.reshape(2 * order, 2 * order)
+    nonlinear_block = nonlinear_block.reshape(
+        2 * order, 2 * order)
 
     assert len(decay_block) == len(response_block), \
         'decay and responde blocks differs!'

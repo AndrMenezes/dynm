@@ -1,6 +1,7 @@
 """Smoothing for Dynamic Linear Models."""
 import numpy as np
-from dynm.utils import _build_predictive_df, _build_posterior_df,  set_X_dict
+from dynm.utils.format_result import _build_predictive_df, _build_posterior_df
+from dynm.utils.format_input import set_X_dict
 
 
 def _backward_smoother(mod, X: dict = {}, level: float = 0.05):
@@ -25,7 +26,7 @@ def _backward_smoother(mod, X: dict = {}, level: float = 0.05):
         of posterior state space distribution.
     """
     nobs = len(mod.dict_state_params.get('a'))
-    copy_X = set_X_dict(nobs=nobs, X=X)
+    copy_X = set_X_dict(mod=mod, nobs=nobs, X=X)
 
     # Initialize the model components and posterior/prior parameters
     a = mod.dict_state_params.get('a')
@@ -57,7 +58,7 @@ def _backward_smoother(mod, X: dict = {}, level: float = 0.05):
     # Perform smoothing
     for k in range(1, nobs):
         Xk['dlm'] = copy_X['dlm'][nobs-k, :]
-        Xk['tfm'] = copy_X['tfm'][nobs-k, :]
+        Xk['tfm'] = copy_X['tfm'][nobs-k, :, :]
 
         Fk = mod._build_F(X=Xk)
         Gk = G[nobs-k]

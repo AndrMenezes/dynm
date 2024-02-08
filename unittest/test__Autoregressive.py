@@ -37,7 +37,7 @@ np.fill_diagonal(C0, val=[9, .001, 9, 9])
 np.fill_diagonal(W, val=[sd_y**2, 0, 0, 0])
 
 
-class TestAnalysisAR(unittest.TestCase):
+class TestAutoregressive(unittest.TestCase):
     """Tests Analysis results for AutoRegressive Model."""
 
     def test__estimates_known_W_and_V(self):
