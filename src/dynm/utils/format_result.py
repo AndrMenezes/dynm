@@ -1,4 +1,4 @@
-"""Utils functions."""
+"""Auxiliary functions for results formatting."""
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -111,21 +111,6 @@ def tidy_parameters(dict_parameters: dict, entry_m: str, entry_v: str,
     return df_state_parameters[["parameter", "mean", "variance"]]
 
 
-def set_X_dict(nobs: int, X: dict = {}):
-    copy_X = X.copy()
-
-    # Organize transfer function values
-    if X.get('dlm') is None:
-        x = np.array([None]*(nobs+1)).reshape(-1, 1)
-        copy_X['dlm'] = x
-
-    if X.get('tfm') is None:
-        z = np.array([None]*(nobs+1)).reshape(-1, 1)
-        copy_X['tfm'] = z
-
-    return copy_X
-
-
 def add_credible_interval_studentt(
         pd_df: pd.DataFrame,
         entry_m: str,
@@ -162,7 +147,7 @@ def create_mod_label_column(mod, t: int):
     arm_lb = list(np.repeat('arm', len(mod.arm.m)))
     tfm_lb = list(np.repeat(
         ['tfm_' + str(i + 1) for i in range(mod.tfm.ntfm)],
-        2 * mod.tfm.order + 1))
+        2 * mod.tfm.lambda_order + mod.tfm.gamma_order))
 
     mod_lb = t * (dlm_lb + arm_lb + tfm_lb)
 
@@ -234,36 +219,3 @@ def _build_variance_df(
     df_var.drop(['d', 'n'], axis=1, inplace=True)
 
     return df_var
-
-
-def summary(mod):
-    nobs = mod.t
-
-    # Return last time posterior parameters
-    print_filter_tab = mod.dict_filter\
-        .get('posterior').query("t==@nobs").copy()\
-        .reset_index(drop=True)\
-        .sort_values(['mod', 'parameter'])
-
-    # Get log-likelihood
-    llk = get_predictive_log_likelihood(mod=mod)
-
-    # Print the summary
-    summary = "Bayesian Dynamic Linear Model Results\n\n"
-    summary += f"Posterior parameters estimate at time {nobs}\n\n"
-    summary += str(print_filter_tab) + "\n\n"
-    summary += f"Predictive log-likelihood {llk}\n\n"
-
-    # Return both the results and the captured output
-    return summary
-
-
-def get_predictive_log_likelihood(mod):
-    predictive_df = mod.dict_filter.get('predictive').dropna().copy()
-    y = predictive_df.y.values
-    f = predictive_df.f.values
-    q = np.sqrt(predictive_df.q.values)
-    t = predictive_df.t.values
-
-    llk = np.log(np.sum(stats.t.pdf(x=y, df=t+1, loc=f, scale=q)))
-    return llk

@@ -1,18 +1,19 @@
 """Utils functions."""
 import numpy as np
 import pandas as pd
-from dynm.dlm import DLM
-from dynm.algebra import _calc_predictive_mean_and_var
-from dynm.dlm_nullmodel import NullModel
-from dynm.dlm_autoregressive import AutoRegressive
-from dynm.dlm_transfer_function import TransferFunction
+from dynm.model.dlm import DLM
+from dynm.utils.algebra import _calc_predictive_mean_and_var
+from dynm.model.dlm_nullmodel import NullModel
+from dynm.model.dlm_autoregressive import AutoRegressive
+from dynm.model.dlm_transfer_function import TransferFunction
 from scipy.linalg import block_diag
-from dynm.filter import _foward_filter
-from dynm.smooth import _backward_smoother
-from dynm.utils import summary
+from dynm.sequencial.filter import _foward_filter
+from dynm.sequencial.smooth import _backward_smoother
+from dynm.utils.summary import summary
 from copy import copy
-from dynm.utils import _build_predictive_df, _build_posterior_df, set_X_dict
-from dynm.utils import get_predictive_log_likelihood
+from dynm.utils.format_result import _build_predictive_df, _build_posterior_df
+from dynm.utils.format_input import set_X_dict
+from dynm.utils.summary import get_predictive_log_likelihood
 
 
 class Analysis():
@@ -63,7 +64,8 @@ class Analysis():
                 m0=model_dict.get('tfm').get('m0'),
                 C0=model_dict.get('tfm').get('C0'),
                 discount_factors=model_dict.get('tfm').get('del'),
-                order=model_dict.get('tfm').get('order'),
+                lambda_order=model_dict.get('tfm').get('lambda_order'),
+                gamma_order=model_dict.get('tfm').get('gamma_order'),
                 ntfm=model_dict.get('tfm').get('ntfm'),
                 W=model_dict.get('tfm').get('W'))
         else:
@@ -144,12 +146,13 @@ class Analysis():
             ['phi_' + str(i+1) for i in range(self.arm.order)]
 
         tf__response_labels = \
-            ['E_' + str(i+1) for i in range(self.tfm.order)]
+            ['E_' + str(i+1) for i in range(self.tfm.lambda_order)]
 
         tf__decay_labels = \
-            ['lambda_' + str(i+1) for i in range(self.tfm.order)]
+            ['lambda_' + str(i+1) for i in range(self.tfm.lambda_order)]
 
-        pulse_labels = ['gamma_1']
+        pulse_labels = \
+            ['gamma_' + str(i+1) for i in range(self.tfm.gamma_order)]
 
         names_parameters = (
             level_labels +
@@ -225,12 +228,12 @@ class Analysis():
         dict_kstep_forecast = {'t': [], 'f': [], 'q': []}
 
         Xt = {'dlm': [], 'tfm': []}
-        copy_X = set_X_dict(nobs=k, X=X)
+        copy_X = set_X_dict(mod=self, nobs=k, X=X)
 
         # K steps-a-head forecast
         for t in range(k):
             Xt['dlm'] = copy_X['dlm'][t, :]
-            Xt['tfm'] = copy_X['tfm'][t, :]
+            Xt['tfm'] = copy_X['tfm'][t, :, :]
 
             F_dlm = self.dlm._update_F(x=Xt.get('dlm'))
             F = np.vstack((F_dlm, self.arm.F, self.tfm.F))

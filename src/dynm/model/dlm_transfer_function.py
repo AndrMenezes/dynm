@@ -1,16 +1,20 @@
 """Utils functions."""
 import numpy as np
 import copy
-from dynm.algebra import _calc_predictive_mean_and_var
-from dynm.algebra import _build_Gnonlinear, _build_W
+from dynm.utils.algebra import _calc_predictive_mean_and_var
+from dynm.utils.algebra import _build_Gnonlinear, _build_W
 from scipy.linalg import block_diag
 
 
 class TransferFunction():
     """Class for fitting, forecast and update dynamic linear models."""
 
-    def __init__(self, m0: np.ndarray, C0: np.ndarray,
-                 order: int, ntfm: int,
+    def __init__(self,
+                 m0: np.ndarray,
+                 C0: np.ndarray,
+                 gamma_order: int,
+                 lambda_order: int,
+                 ntfm: int,
                  discount_factors: np.ndarray = None,
                  W: np.ndarray = None,
                  V: float = None):
@@ -29,7 +33,8 @@ class TransferFunction():
             discount factor.
 
         """
-        self.order = order
+        self.gamma_order = gamma_order
+        self.lambda_order = lambda_order
         self.ntfm = ntfm
         self.m = m0.reshape(-1, 1)
         self.C = C0
@@ -54,16 +59,19 @@ class TransferFunction():
         self.index_dict = {}
 
         for n in range(ntfm):
-            block_idx = n * (2 * order + 1) + np.cumsum([order, order, 1])
+            block_idx = n * (2 * lambda_order + gamma_order) + \
+                np.cumsum([lambda_order, lambda_order, gamma_order])
             self.index_dict[n] = {
-                'all': np.arange(n * (2 * order + 1), block_idx[2]),
-                'response': np.arange(n * (2 * order + 1), block_idx[0]),
+                'all': np.arange(n * (2 * lambda_order + gamma_order),
+                                 block_idx[2]),
+                'response': np.arange(n * (2 * lambda_order + gamma_order),
+                                      block_idx[0]),
                 'decay': np.arange(block_idx[0], block_idx[1]),
                 'pulse': np.arange(block_idx[1], block_idx[2])}
 
         # Build F and G
         self.F = self._build_F()
-        self.G = self._build_G(x=np.repeat(0, ntfm))
+        self.G = self._build_G(x=np.zeros([ntfm, self.gamma_order]))
 
     def forecast(self, k: int = 1):
         """Forecast y at time (t+k).
@@ -89,7 +97,7 @@ class TransferFunction():
         F = np.array([])
 
         for i in range(self.ntfm):
-            Fi = np.zeros(2 * self.order + 1)
+            Fi = np.zeros(2 * self.lambda_order + self.gamma_order)
             Fi[0] = 1
 
             F = np.hstack((F, Fi))
@@ -98,7 +106,7 @@ class TransferFunction():
 
     def _build_G(self, x: np.array):
         m = self.m
-        order = self.order
+        lambda_order = self.lambda_order
         ntfm = self.ntfm
 
         G = np.empty([0, 0])
@@ -109,13 +117,17 @@ class TransferFunction():
                 self.index_dict.get(n).get('pulse')))
 
             m_ = m[idx_]
-            Gi = _build_Gnonlinear(m=m_.reshape(-1, 1), order=order)
+            Gi = _build_Gnonlinear(m=m_.reshape(-1, 1),
+                                   order=lambda_order)
 
-            xn = np.ravel(x[n])
-            H = np.zeros(Gi.shape[0]).reshape(-1, 1)
-            H[0, 0] = xn
-            Gi = np.block([[Gi, H], [H.T * 0, 1]])
-            G = block_diag(G, Gi)
+            Hn = np.zeros([Gi.shape[0], self.gamma_order])
+            for o in range(self.gamma_order):
+                xn = np.ravel(x[n, o])
+                Hn[0, o] = xn
+
+            In = np.identity(self.gamma_order)
+            Gn = np.block([[Gi, Hn], [Hn.T * 0, In]])
+            G = block_diag(G, Gn)
 
         return G
 

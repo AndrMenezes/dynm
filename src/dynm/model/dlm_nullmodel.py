@@ -22,6 +22,8 @@ class NullModel():
 
         """
         self.order = 0
+        self.lambda_order = 0
+        self.gamma_order = 0
         self.ntrend = 0
         self.nregn = 0
         self.nseas = 0
