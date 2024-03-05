@@ -11,8 +11,8 @@ rm -R dist
 rm -R build
 python3 setup.py build sdist bdist_wheel
 
-# twine upload --repository testpypi dist/*
-# twine upload dist/*
-
-# git tag -a v${VERSION} -m "Bumped version number to ${VERSION}"
-# git push origin v${VERSION}
+git add --all
+git commit -m "Building a new version ${VERSION}"
+git tag -a v${VERSION} -m "Building a new version ${VERSION}"
+git push
+git push origin v${VERSION}
