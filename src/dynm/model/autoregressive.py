@@ -76,7 +76,7 @@ class AutoRegressive():
         f, q = _calc_predictive_mean_and_var(mod=self)
         return np.ravel(f), np.ravel(q)
 
-    def _build_F(self):
+    def _build_F(self, x: np.array = None):
         F = np.zeros(2 * self.order)
         F[0] = 1
         return F.reshape(-1, 1)

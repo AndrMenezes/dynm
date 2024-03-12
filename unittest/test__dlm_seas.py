@@ -58,7 +58,7 @@ class TestDLM(unittest.TestCase):
                 'nregn': 0,
                 "seas_period": 12,
                 "seas_harm_components": [1, 2],
-                "W": W}
+                "del": np.repeat(1, 5)}
         }
 
         # Fit
@@ -90,7 +90,7 @@ class TestDLM(unittest.TestCase):
 
         self.assertTrue(mape < .05)
 
-    def test__k_steps_ahead_forecast_performance(self):
+    def test__predict_calc_fq_performance(self):
         """Test k steps a head performance."""
         model_dict = {
             'dlm': {
@@ -111,13 +111,13 @@ class TestDLM(unittest.TestCase):
         mod = Analysis(model_dict=model_dict).fit(y=tr__y)
 
         # Forecasting
-        forecast_results = mod._k_steps_a_head_forecast(k=20)
+        forecast_results = mod._predict(k=20)
         forecast_df = forecast_results.get('predictive')
         mape = np.mean(np.abs(forecast_df.f - te__y) / te__y)
 
         self.assertTrue(mape < .05)
 
-    def test__k_steps_a_head_forecast_values(self):
+    def test__predict_values(self):
         """Test k steps a head values."""
         model_dict = {
             'dlm': {
@@ -134,10 +134,10 @@ class TestDLM(unittest.TestCase):
         mod = Analysis(model_dict=model_dict).fit(y=y)
 
         # Forecasting
-        f, q = mod._forecast()
+        f, q = mod._calc_fq()
 
         forecast_df = mod\
-            ._k_steps_a_head_forecast(k=1)\
+            ._predict(k=1)\
             .get('predictive')
 
         fk = forecast_df.f.values

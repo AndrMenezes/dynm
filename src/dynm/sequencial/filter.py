@@ -39,7 +39,7 @@ def _foward_filter(mod,
         # Predictive distribution moments
         Xt['dlm'] = copy_X['dlm'][t, :]
         Xt['tfm'] = copy_X['tfm'][t, :, :]
-        f, q = mod._forecast(X=Xt)
+        f, q = mod._calc_fq(X=Xt)
 
         # Append results
         dict_1step_forecast['t'].append(t+1)
@@ -72,6 +72,8 @@ def _foward_filter(mod,
     df_posterior = _build_posterior_df(
         mod=mod,
         dict_posterior=dict_state_params,
+        entry_m="m",
+        entry_v="C",
         t=nobs,
         level=level)
 
@@ -80,7 +82,8 @@ def _foward_filter(mod,
         dict_observation_var=dict_observation_var,
         level=level)
 
-    df_posterior = pd.concat([df_posterior, df_var]).sort_values('t')
+    df_posterior = pd.concat([df_posterior, df_var])\
+        .sort_values(['t', 'parameter'])
     filter_dict = {'predictive': df_predictive, 'posterior': df_posterior}
 
     # Creat dict of results
