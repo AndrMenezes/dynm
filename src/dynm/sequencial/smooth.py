@@ -93,6 +93,8 @@ def _backward_smoother(mod, X: dict = {}, level: float = 0.05):
     df_posterior = _build_posterior_df(
         mod=mod,
         dict_posterior=dict_smooth_params,
+        entry_m="a",
+        entry_v="R",
         t=nobs,
         level=level,
         smooth=True)

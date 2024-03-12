@@ -12,7 +12,7 @@ class DLM():
                  C0: np.ndarray,
                  ntrend: int, nregn: int,
                  seas_period: int = None, seas_harm_components: list = None,
-                 discount_factors: np.ndarray = None,
+                 discount_factors: float = None,
                  W: np.ndarray = None,
                  V: float = None):
         """Define model.

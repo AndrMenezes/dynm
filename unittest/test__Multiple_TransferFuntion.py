@@ -157,7 +157,7 @@ class TestMultipleTransferFunction(unittest.TestCase):
         self.assertTrue(np.abs(m[9] - true_gamma_2) < 1)
         self.assertTrue(forecast_df.f.notnull().all())
 
-    def test__k_steps_ahead_forecast_performance(self):
+    def test__predict_calc_fq_performance(self):
         """Test k steps a head performance."""
         model_dict = {
             'tfm': {'m0': m0, 'C0': C0, 'gamma_order': 1, 'lambda_order': 2,
@@ -175,7 +175,7 @@ class TestMultipleTransferFunction(unittest.TestCase):
         mod = Analysis(model_dict=model_dict).fit(y=tr__y, X=tr__X)
 
         # Forecasting
-        forecast_results = mod._k_steps_a_head_forecast(k=50, X=te__X)
+        forecast_results = mod._predict(k=50, X=te__X)
         forecast_df = forecast_results.get('predictive')
         parameters_df = forecast_results.get('parameters')
 
@@ -186,7 +186,7 @@ class TestMultipleTransferFunction(unittest.TestCase):
         self.assertTrue(forecast_df.notnull().all().all())
         self.assertTrue(parameters_df.notnull().all().all())
 
-    def test__k_steps_ahead_forecast_values(self):
+    def test__k_steps_ahead_calc_fq_values(self):
         """Test k steps a head performance."""
         model_dict = {
             'tfm': {'m0': m0, 'C0': C0, 'gamma_order': 1, 'lambda_order': 2,
@@ -202,10 +202,10 @@ class TestMultipleTransferFunction(unittest.TestCase):
 
         Xte_2d = {'tfm': xte_2d}
         Xte_3d = {'tfm': xte_3d}
-        f, q = mod._forecast(X=Xte_2d)
+        f, q = mod._calc_fq(X=Xte_2d)
 
         forecast_df = mod\
-            ._k_steps_a_head_forecast(k=1, X=Xte_3d)\
+            ._predict(k=1, X=Xte_3d)\
             .get('predictive')
         fk = forecast_df.f.values
         qk = forecast_df.q.values

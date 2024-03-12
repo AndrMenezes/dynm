@@ -16,8 +16,7 @@ class TransferFunction():
                  lambda_order: int,
                  ntfm: int,
                  discount_factors: np.ndarray = None,
-                 W: np.ndarray = None,
-                 V: float = None):
+                 W: np.ndarray = None):
         """Define model.
 
         Define model with observation/system equations components \
@@ -39,16 +38,8 @@ class TransferFunction():
         self.m = m0.reshape(-1, 1)
         self.C = C0
 
-        if V is None:
-            self.n = 1
-            self.d = 1
-            self.s = 1
-            self.discount_factors = discount_factors
-        else:
-            self.s = V
-            self.estimate_V = False
-
         self.discount_factors = discount_factors
+
         if W is None:
             self.estimate_W = True
         else:

@@ -3,9 +3,9 @@ import numpy as np
 import pandas as pd
 from dynm.model.dlm import DLM
 from dynm.utils.algebra import _calc_predictive_mean_and_var
-from dynm.model.dlm_nullmodel import NullModel
-from dynm.model.dlm_autoregressive import AutoRegressive
-from dynm.model.dlm_transfer_function import TransferFunction
+from dynm.model.nullmodel import NullModel
+from dynm.model.autoregressive import AutoRegressive
+from dynm.model.transfer_function import TransferFunction
 from scipy.linalg import block_diag
 from dynm.sequencial.filter import _foward_filter
 from dynm.sequencial.smooth import _backward_smoother
@@ -204,19 +204,7 @@ class Analysis():
 
         return self
 
-    def summary(self):
-        str_summary = summary(mod=self)
-        return str_summary
-
-    def _forecast(self, X: dict = {}):
-        F = self._build_F(X=X)
-        G = self._build_G(X=X)
-
-        a, R = self._calc_aR(G=G)
-        f, q = _calc_predictive_mean_and_var(F=F, a=a, R=R, s=self.v)
-        return f, q
-
-    def _k_steps_a_head_forecast(
+    def _predict(
             self,
             k: int,
             X: dict = {},
@@ -235,10 +223,8 @@ class Analysis():
             Xt['dlm'] = copy_X['dlm'][t, :]
             Xt['tfm'] = copy_X['tfm'][t, :, :]
 
-            F_dlm = self.dlm._update_F(x=Xt.get('dlm'))
-            F = np.vstack((F_dlm, self.arm.F, self.tfm.F))
-
             # Predictive distribution moments
+            F = self._build_F(X=Xt)
             G = self._build_G(X=Xt)
             W = self._build_W(G=G)
             h = self._build_h(G=G)
@@ -268,6 +254,8 @@ class Analysis():
         df_predict_aR = _build_posterior_df(
             mod=self,
             dict_posterior=dict_state_params,
+            entry_m="a",
+            entry_v="R",
             t=k,
             level=level)
 
@@ -275,6 +263,23 @@ class Analysis():
         dict_results = {'predictive': df_predictive,
                         'parameters': df_predict_aR}
         return dict_results
+
+    def _calc_fq(self, X: dict = {}):
+        # Predictive distribution moments
+        F = self._build_F(X=X)
+        G = self._build_G(X=X)
+        W = self._build_W(G=G)
+        h = self._build_h(G=G)
+
+        a = G @ self.m + h
+        R = G @ self.C @ G.T + W
+
+        f, q = _calc_predictive_mean_and_var(F=F, a=a, R=R, s=self.v)
+        return f, q
+
+    def summary(self):
+        str_summary = summary(mod=self)
+        return str_summary
 
     def _build_F(self, X: dict = {}):
         F_dlm = self.dlm._update_F(x=X.get('dlm'))
@@ -369,12 +374,6 @@ class Analysis():
             self.a = self.G @ self.m + self.h
             self.R = self.G @ self.C @ self.G.T
         else:
-            # Need a better solution for this!
-            if self.arm.order > 0:
-                self.v = 0
-            else:
-                self.v = self.s
-
             a, R = self._calc_aR(G=self.G)
             f, q = _calc_predictive_mean_and_var(F=self.F, a=a, R=R, s=self.v)
 
@@ -416,3 +415,8 @@ class Analysis():
             self.dlm.s = self.s
             self.arm.s = self.s
             self.tfm.s = self.s
+
+            if self.arm.order > 0:
+                self.v = 0
+            else:
+                self.v = self.s

@@ -87,7 +87,7 @@ class TestAutoregressive(unittest.TestCase):
         self.assertTrue(np.abs(m[3] - phi_2) < .2)
         self.assertTrue(forecast_df.f.notnull().all())
 
-    def test__k_steps_ahead_forecast_performance(self):
+    def test__predict_calc_fq_performance(self):
         """Test k steps a head performance."""
         model_dict = {
             'arm': {'m0': m0, 'C0': C0, 'order': 2,
@@ -102,7 +102,7 @@ class TestAutoregressive(unittest.TestCase):
         mod = Analysis(model_dict=model_dict).fit(y=tr__y)
 
         # Forecasting
-        forecast_results = mod._k_steps_a_head_forecast(k=50)
+        forecast_results = mod._predict(k=50)
         forecast_df = forecast_results.get('predictive')
         parameters_df = forecast_results.get('parameters')
 
@@ -113,7 +113,7 @@ class TestAutoregressive(unittest.TestCase):
         self.assertTrue(forecast_df.notnull().all().all())
         self.assertTrue(parameters_df.notnull().all().all())
 
-    def test__k_steps_ahead_forecast_values(self):
+    def test__k_steps_ahead_calc_fq_values(self):
         """Test k steps a head values."""
         model_dict = {
             'arm': {'m0': m0, 'C0': C0, 'order': 2,
@@ -124,10 +124,10 @@ class TestAutoregressive(unittest.TestCase):
         mod = Analysis(model_dict=model_dict).fit(y=y)
 
         # Forecasting
-        f, q = mod._forecast()
+        f, q = mod._calc_fq()
 
         forecast_df = mod\
-            ._k_steps_a_head_forecast(k=1)\
+            ._predict(k=1)\
             .get('predictive')
 
         fk = forecast_df.f.values

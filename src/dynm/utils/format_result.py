@@ -168,13 +168,15 @@ def _build_predictive_df(mod, dict_predict: dict, level: float):
 def _build_posterior_df(
         mod,
         dict_posterior: dict,
+        entry_m: str,
+        entry_v: str,
         t: int,
         level: float,
         smooth: bool = False):
     # Organize the posterior parameters
     df_posterior = tidy_parameters(
         dict_parameters=dict_posterior,
-        entry_m="a", entry_v="R",
+        entry_m=entry_m, entry_v=entry_v,
         names_parameters=mod.names_parameters)
 
     # Create model labels
