@@ -2,7 +2,7 @@
 import numpy as np
 import copy
 from dynm.utils.algebra import _calc_predictive_mean_and_var, _calc_aR
-from dynm.utils.algebra import _build_Gnonlinear, _build_W
+from dynm.utils.algebra import _build_Gnonlinear, _build_W_diagonal
 
 
 class AutoRegressive():
@@ -114,7 +114,7 @@ class AutoRegressive():
 
     def _build_W(self, P: np.array):
         if self.estimate_W:
-            W = _build_W(mod=self, P=P)
+            W = _build_W_diagonal(mod=self, P=P)
             W[1:self.order, 1:self.order] = W[1:self.order, 1:self.order] * 0.0
             W[0, 0] = self.s
         else:

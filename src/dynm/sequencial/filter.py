@@ -39,16 +39,15 @@ def _foward_filter(mod,
         # Predictive distribution moments
         Xt['dlm'] = copy_X['dlm'][t, :]
         Xt['tfm'] = copy_X['tfm'][t, :, :]
-        f, q = mod._calc_fq(X=Xt)
 
         # Append results
         dict_1step_forecast['t'].append(t+1)
         dict_1step_forecast['y'].append(y[t])
-        dict_1step_forecast['f'].append(np.ravel(f)[0])
-        dict_1step_forecast['q'].append(np.ravel(q)[0])
+        dict_1step_forecast['f'].append(mod.f)
+        dict_1step_forecast['q'].append(mod.q)
 
         # Update model
-        mod.update(y=y[t], X=Xt)
+        mod._update(y=y[t], X=Xt)
 
         # Dict state params
         dict_state_params["a"].append(mod.a)
@@ -90,7 +89,8 @@ def _foward_filter(mod,
     return_dict = {
         "filter": filter_dict,
         "state_params": dict_state_params,
-        "state_evolution": dict_state_evolution
+        "state_evolution": dict_state_evolution,
+        "fitted_mod": mod
     }
 
     return return_dict

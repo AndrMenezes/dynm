@@ -1,7 +1,8 @@
 """Test dlm model parameters estimation."""
 import numpy as np
 import unittest
-from dynm.analysis import Analysis
+from dynm.sequencial.analysis import Analysis
+from dynm.dynamic_model import BayesianDynamicModel
 from scipy.linalg import block_diag
 
 # Simulating the data

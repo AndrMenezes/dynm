@@ -1,6 +1,6 @@
 """Dynamic Linear Model with transfer function."""
 import numpy as np
-from dynm.utils.algebra import _build_W
+from dynm.utils.algebra import _build_W_complete
 
 
 class SeasonalFourier():
@@ -76,12 +76,12 @@ class SeasonalFourier():
         F = self.F
         return F
 
-    def _build_P(self, G: np.array):
-        return G @ self.C @ G.T
+    def _build_P(self):
+        return self.G @ self.C @ self.G.T
 
     def _build_W(self, P: np.array):
         if self.estimate_W:
-            W = _build_W(mod=self, P=P)
+            W = _build_W_complete(mod=self, P=P)
         else:
             W = self.W
         return W
