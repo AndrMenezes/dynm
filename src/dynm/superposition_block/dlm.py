@@ -31,12 +31,19 @@ class DynamicLinearModel():
         self.V = V
 
         self._set_submodels()
+
         self._set_gamma_distribution_parameters()
+
         self._concatenate_regression_vector()
+
         self._concatenate_evolution_matrix()
+
         self._concatenate_prior_mean()
+
         self._concatenate_prior_covariance_matrix()
+
         self._set_submodels_block_index()
+
         self._set_parameters_name()
 
     def _set_submodels(self):
@@ -87,7 +94,7 @@ class DynamicLinearModel():
 
         self.polynomial_model = polynomial_mod
         self.regression_model = regression_mod
-        self.season_fourier_model = seasonal_mod
+        self.seasonal_model = seasonal_mod
 
     def _set_gamma_distribution_parameters(self):
         self.n = 1
@@ -105,7 +112,7 @@ class DynamicLinearModel():
     def _concatenate_regression_vector(self):
         self.F = np.vstack((self.polynomial_model.F,
                             self.regression_model.F,
-                            self.seasonal_mod.F))
+                            self.seasonal_model.F))
 
     def _concatenate_evolution_matrix(self):
         self.G = block_diag(self.polynomial_model.G,
@@ -130,33 +137,31 @@ class DynamicLinearModel():
 
     def _set_submodels_block_index(self):
         nparams_polynomial = len(self.polynomial_model.m)
-        nparams_regression = len(self.regression_mod.m)
-        nparams_seasonal = len(self.seasonal_mod.m)
+        nparams_regression = len(self.regression_model.m)
+        nparams_seasonal = len(self.seasonal_model.m)
 
         block_idx = np.cumsum([nparams_polynomial,
                                nparams_regression,
                                nparams_seasonal])
 
-        idx_polynomial = np.arange(0, block_idx[0])
-        idx_regression = np.arange(block_idx[0], block_idx[1])
-        idx_seasonal = np.arange(block_idx[1], block_idx[2])
+        idx_poly = np.arange(0, block_idx[0])
+        idx_regn = np.arange(block_idx[0], block_idx[1])
+        idx_seas = np.arange(block_idx[1], block_idx[2])
 
-        grid_polynomial_x, grid_polynomial_y = np.meshgrid(
-            idx_polynomial, idx_polynomial)
-        grid_regression_x, grid_regression_y = np.meshgrid(
-            idx_regression, idx_regression)
-        grid_seasonal_x, grid_seasonal_y = np.meshgrid(
-            idx_seasonal, idx_seasonal)
+        grid_poly_x, grid_poly_y = np.meshgrid(idx_poly, idx_poly)
+        grid_regn_x, grid_regn_y = np.meshgrid(idx_regn, idx_regn)
+        grid_seas_x, grid_seas_y = np.meshgrid(idx_seas, idx_seas)
 
         self.model_index_dict = {
-            'polynomial': idx_polynomial,
-            'regression': idx_regression,
-            'seasonal': idx_seasonal}
+            'polynomial': idx_poly,
+            'regression': idx_regn,
+            'seasonal': idx_seas
+        }
 
         self.grid_index_dict = {
-            'polynomial': (grid_polynomial_x, grid_polynomial_y),
-            'regression': (grid_regression_x, grid_regression_y),
-            'seasonal': (grid_seasonal_x, grid_seasonal_y)
+            'polynomial': (grid_poly_x, grid_poly_y),
+            'regression': (grid_regn_x, grid_regn_y),
+            'seasonal': (grid_seas_x, grid_seas_y)
         }
 
     def _set_parameters_name(self):
@@ -172,7 +177,7 @@ class DynamicLinearModel():
             ['seas_harm_' + str(i+1)
              for i in range(self.seasonal_model.nseas)]
 
-        names_parameters = [level_labels + regn_labels + seas_labels]
+        names_parameters = (level_labels + regn_labels + seas_labels)
         self.names_parameters = names_parameters
 
     def _build_F(self, x: np.array = None):
@@ -206,22 +211,37 @@ class DynamicLinearModel():
 
         return W
 
+    def _update_submodels_F(self):
+        idx_poly = self.model_index_dict.get('polynomial')
+        idx_regn = self.model_index_dict.get('regression')
+        idx_seas = self.model_index_dict.get('seasonal')
+
+        self.polynomial_model.F = self.F[idx_poly]
+        self.regression_model.F = self.F[idx_regn]
+        self.seasonal_model.F = self.F[idx_seas]
+
+    def _update_submodels_G(self):
+        grid_poly_x, grid_poly_y = self.grid_index_dict.get('polynomial')
+        grid_regn_x, grid_regn_y = self.grid_index_dict.get('regression')
+        grid_seas_x, grid_seas_y = self.grid_index_dict.get('seasonal')
+
+        self.polynomial_model.G = self.G[grid_poly_x, grid_poly_y]
+        self.regression_model.G = self.G[grid_regn_x, grid_regn_y]
+        self.seasonal_model.G = self.G[grid_seas_x, grid_seas_y]
+
     def _update_submodels_moments(self):
-        idx_polynomial = self.model_index_dict.get('polynomial')
-        idx_regression = self.model_index_dict.get('regression')
-        idx_seasonal = self.model_index_dict.get('seasonal')
+        idx_poly = self.model_index_dict.get('polynomial')
+        idx_regn = self.model_index_dict.get('regression')
+        idx_seas = self.model_index_dict.get('seasonal')
 
-        grid_polynomial_x, grid_polynomial_y = \
-            self.grid_index_dict.get('polynomial')
-        grid_regression_x, grid_regression_y = \
-            self.grid_index_dict.get('regression')
-        grid_seasonal_x, grid_seasonal_y = \
-            self.grid_index_dict.get('seasonal')
+        grid_poly_x, grid_poly_y = self.grid_index_dict.get('polynomial')
+        grid_regn_x, grid_regn_y = self.grid_index_dict.get('regression')
+        grid_seas_x, grid_seas_y = self.grid_index_dict.get('seasonal')
 
-        self.polynomial.m = self.m[idx_polynomial]
-        self.regression.m = self.m[idx_regression]
-        self.seasonal.m = self.m[idx_seasonal]
+        self.polynomial_model.m = self.m[idx_poly]
+        self.regression_model.m = self.m[idx_regn]
+        self.seasonal_model.m = self.m[idx_seas]
 
-        self.polynomial.C = self.C[grid_polynomial_x, grid_polynomial_y]
-        self.regression.C = self.C[grid_regression_x, grid_regression_y]
-        self.seasonal.C = self.C[grid_seasonal_x, grid_seasonal_y]
+        self.polynomial_model.C = self.C[grid_poly_x, grid_poly_y]
+        self.regression_model.C = self.C[grid_regn_x, grid_regn_y]
+        self.seasonal_model.C = self.C[grid_seas_x, grid_seas_y]

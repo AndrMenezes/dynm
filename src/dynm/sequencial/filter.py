@@ -32,22 +32,22 @@ def _foward_filter(mod,
     dict_state_params = {'m': [], 'C': [], 'a': [], 'R': []}
     dict_state_evolution = {'G': []}
 
-    Xt = {'dlm': [], 'tfm': []}
+    Xt = {'regression': [], 'transfer_function': []}
     copy_X = set_X_dict(mod=mod, nobs=nobs, X=X)
 
     for t in range(nobs):
         # Predictive distribution moments
-        Xt['dlm'] = copy_X['dlm'][t, :]
-        Xt['tfm'] = copy_X['tfm'][t, :, :]
+        Xt['regression'] = copy_X['regression'][t, :]
+        Xt['transfer_function'] = copy_X['transfer_function'][t, :, :]
 
-        # Append results
+        # Update model
+        mod._update(y=y[t], X=Xt)
+
+        # Dict 1steap forecast
         dict_1step_forecast['t'].append(t+1)
         dict_1step_forecast['y'].append(y[t])
         dict_1step_forecast['f'].append(mod.f)
         dict_1step_forecast['q'].append(mod.q)
-
-        # Update model
-        mod._update(y=y[t], X=Xt)
 
         # Dict state params
         dict_state_params["a"].append(mod.a)
@@ -64,10 +64,10 @@ def _foward_filter(mod,
         dict_observation_var['n'].append(np.ravel(mod.n)[0])
         dict_observation_var['mean'].append(np.ravel(mod.s)[0])
 
-    # Get posterior and predictive dataframes
     df_predictive = _build_predictive_df(
         mod=mod, dict_predict=dict_1step_forecast, level=level)
 
+    # Build posterior data frames
     df_posterior = _build_posterior_df(
         mod=mod,
         dict_posterior=dict_state_params,
@@ -81,9 +81,14 @@ def _foward_filter(mod,
         dict_observation_var=dict_observation_var,
         level=level)
 
+    # Concatenate results
     df_posterior = pd.concat([df_posterior, df_var])\
         .sort_values(['t', 'parameter'])
-    filter_dict = {'predictive': df_predictive, 'posterior': df_posterior}
+
+    filter_dict = {
+        "predictive": df_predictive,
+        "posterior": df_posterior
+    }
 
     # Creat dict of results
     return_dict = {

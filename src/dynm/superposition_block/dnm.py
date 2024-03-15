@@ -30,39 +30,48 @@ class DynamicNonLinearModel():
         self.V = V
 
         self._set_submodels()
+
         self._set_gamma_distribution_parameters()
+
         self._concatenate_regression_vector()
+
         self._concatenate_evolution_matrix()
+
         self._concatenate_prior_mean()
+
         self._concatenate_prior_covariance_matrix()
+
         self._set_submodels_block_index()
+
         self._set_parameters_name()
 
     def _set_submodels(self):
-        if self.model_dict.get('arm') is not None:
-            arm = AutoRegressive(
-                m0=self.model_dict.get('arm').get('m0'),
-                C0=self.model_dict.get('arm').get('C0'),
-                discount_factors=self.model_dict.get('arm').get('del'),
-                order=self.model_dict.get('arm').get('order'),
-                W=self.model_dict.get('arm').get('W'))
+        if self.model_dict.get('autoregressive') is not None:
+            submod_dict = self.model_dict.get('autoregressive')
+            autoregressive = AutoRegressive(
+                m0=submod_dict.get('m0'),
+                C0=submod_dict.get('C0'),
+                discount=submod_dict.get('del'),
+                order=submod_dict.get('order'),
+                W=submod_dict.get('W'))
         else:
-            arm = NullModel()
+            autoregressive = NullModel()
 
-        if self.model_dict.get('tfm') is not None:
-            tfm = TransferFunction(
-                m0=self.model_dict.get('tfm').get('m0'),
-                C0=self.model_dict.get('tfm').get('C0'),
-                discount_factors=self.model_dict.get('tfm').get('del'),
-                lambda_order=self.model_dict.get('tfm').get('lambda_order'),
-                gamma_order=self.model_dict.get('tfm').get('gamma_order'),
-                ntfm=self.model_dict.get('tfm').get('ntfm'),
-                W=self.model_dict.get('tfm').get('W'))
+        if self.model_dict.get('transfer_function') is not None:
+            submod_dict = self.model_dict.get('transfer_function')
+            transfer_function = TransferFunction(
+                m0=submod_dict.get('m0'),
+                C0=submod_dict.get('C0'),
+                discount=submod_dict.get('del'),
+                lambda_order=submod_dict.get('lambda_order'),
+                gamma_order=submod_dict.get('gamma_order'),
+                ntfm=submod_dict.get('ntfm'),
+                W=submod_dict.get('W'))
         else:
-            tfm = NullModel()
+            transfer_function = NullModel()
 
-        self.arm = arm
-        self.tfm = tfm
+        self.autoregressive_model = autoregressive
+        self.transfer_function_model = transfer_function
 
     def _set_gamma_distribution_parameters(self):
         self.n = 1
@@ -77,129 +86,148 @@ class DynamicNonLinearModel():
             self.s = self.V
             self.estimate_V = False
 
-        if self.arm.order > 0:
+        if self.autoregressive_model.order > 0:
             self.v = 0
         else:
             self.v = self.s
 
     def _concatenate_regression_vector(self):
-        self.F = np.vstack((self.arm.F, self.tfm.F))
+        self.F = np.vstack((self.autoregressive_model.F,
+                            self.transfer_function_model.F))
 
     def _concatenate_evolution_matrix(self):
-        self.G = block_diag(self.arm.G, self.tfm.G)
+        self.G = block_diag(self.autoregressive_model.G,
+                            self.transfer_function_model.G)
 
     def _concatenate_prior_mean(self):
-        self.a = np.vstack((self.arm.m, self.tfm.m))
-        self.m = np.vstack((self.arm.m, self.tfm.m))
+        self.a = np.vstack((self.autoregressive_model.m,
+                            self.transfer_function_model.m))
+        self.m = np.vstack((self.autoregressive_model.m,
+                            self.transfer_function_model.m))
 
     def _concatenate_prior_covariance_matrix(self):
-        self.R = block_diag(self.arm.C, self.tfm.C)
-        self.C = block_diag(self.arm.C, self.tfm.C)
+        self.R = block_diag(self.autoregressive_model.C,
+                            self.transfer_function_model.C)
+        self.C = block_diag(self.autoregressive_model.C,
+                            self.transfer_function_model.C)
 
     def _set_submodels_block_index(self):
-        nparams_arm = len(self.arm.m)
-        nparams_tfm = len(self.tfm.m)
+        nparams_autoregressive = len(self.autoregressive_model.m)
+        nparams_transfer_function = len(self.transfer_function_model.m)
 
-        block_idx = np.cumsum([nparams_arm, nparams_tfm])
+        block_idx = np.cumsum([nparams_autoregressive,
+                               nparams_transfer_function])
 
-        idx_arm = np.arange(block_idx[0], block_idx[1])
-        idx_tfm = np.arange(block_idx[1], block_idx[2])
+        idx_ar = np.arange(0, block_idx[0])
+        idx_tf = np.arange(block_idx[0], block_idx[1])
 
-        grid_arm_x, grid_arm_y = np.meshgrid(idx_arm, idx_arm)
-        grid_tfm_x, grid_tfm_y = np.meshgrid(idx_tfm, idx_tfm)
+        grid_ar_x, grid_ar_y = np.meshgrid(idx_ar, idx_ar)
+        grid_tf_x, grid_tf_y = np.meshgrid(idx_tf, idx_tf)
 
-        self.model_index_dict = {'arm': idx_arm, 'tfm': idx_tfm}
+        self.model_index_dict = {
+            'autoregressive': idx_ar,
+            'transfer_function': idx_tf
+        }
 
         self.grid_index_dict = {
-            'arm': (grid_arm_x, grid_arm_y),
-            'tfm': (grid_tfm_x, grid_tfm_y)
+            'autoregressive': (grid_ar_x, grid_ar_y),
+            'transfer_function': (grid_tf_x, grid_tf_y)
         }
 
     def _set_parameters_name(self):
         ar__response_labels = \
-            ['xi_' + str(i+1) for i in range(self.arm.order)]
+            ['xi_' + str(i+1)
+             for i in range(self.autoregressive_model.order)]
 
         ar__decay_labels = \
-            ['phi_' + str(i+1) for i in range(self.arm.order)]
+            ['phi_' + str(i+1)
+             for i in range(self.autoregressive_model.order)]
 
         tf__response_labels = \
-            ['E_' + str(i+1) for i in range(self.tfm.lambda_order)]
+            ['E_' + str(i+1)
+             for i in range(self.transfer_function_model.lambda_order)]
 
         tf__decay_labels = \
-            ['lambda_' + str(i+1) for i in range(self.tfm.lambda_order)]
+            ['lambda_' + str(i+1)
+             for i in range(self.transfer_function_model.lambda_order)]
 
         pulse_labels = \
-            ['gamma_' + str(i+1) for i in range(self.tfm.gamma_order)]
+            ['gamma_' + str(i+1)
+             for i in range(self.transfer_function_model.gamma_order)]
 
-        names_parameters = [
+        names_parameters = (
             ar__response_labels +
             ar__decay_labels +
-            self.tfm.ntfm *
-            (tf__response_labels + tf__decay_labels + pulse_labels)]
+            self.transfer_function_model.ntfm *
+            (tf__response_labels + tf__decay_labels + pulse_labels))
 
         self.names_parameters = names_parameters
 
     def _build_F(self):
-        F = np.vstack((self.arm.F, self.tfm.F))
+        F = np.vstack((
+            self.autoregressive_model.F,
+            self.transfer_function_model.F))
 
         return F
 
     def _build_G(self, x: np.array):
-        G_arm = self.arm._build_G()
-        G_tfm = self.tfm._build_G(x=x)
+        G_ar = self.autoregressive_model._build_G()
+        G_tf = self.transfer_function_model._build_G(x=x)
 
-        G = block_diag(G_arm, G_tfm)
+        G = block_diag(G_ar, G_tf)
 
         return G
 
-    def _build_W(self, G: np.array):
-        grid_arm_x, grid_arm_y = self.grid_index_dict.get('arm')
-        grid_tfm_x, grid_tfm_y = self.grid_index_dict.get('tfm')
+    def _build_W(self):
+        P_ar = self.autoregressive_model._build_P()
+        P_tf = self.transfer_function_model._build_P()
 
-        G_arm = G[grid_arm_x, grid_arm_y].T
-        G_tfm = G[grid_tfm_x, grid_tfm_y].T
+        W_ar = self.autoregressive_model._build_W(P=P_ar)
+        W_tf = self.transfer_function_model._build_W(P=P_tf)
 
-        P_arm = self.arm._build_P(G=G_arm)
-        P_tfm = self.tfm._build_P(G=G_tfm)
-
-        W_arm = self.arm._build_W(P=P_arm)
-        W_tfm = self.tfm._build_W(P=P_tfm)
-
-        W = block_diag(W_arm, W_tfm)
+        W = block_diag(W_ar, W_tf)
 
         return W
 
-    def _build_h(self, G: np.array):
-        grid_arm_x, grid_arm_y = self.grid_index_dict.get('arm')
-        grid_tfm_x, grid_tfm_y = self.grid_index_dict.get('tfm')
+    def _build_h(self):
+        h_ar = self.autoregressive_model._build_h()
+        h_tf = self.transfer_function_model._build_h()
 
-        G_arm = G[grid_arm_x, grid_arm_y].T
-        G_tfm = G[grid_tfm_x, grid_tfm_y].T
-
-        h_arm = self.arm._build_h(G=G_arm)
-        h_tfm = self.tfm._build_h(G=G_tfm)
-
-        h = np.vstack([h_arm, h_tfm])
+        h = np.vstack([h_ar, h_tf])
 
         return h
 
+    def _update_submodels_F(self):
+        idx_ar = self.model_index_dict.get('autoregressive')
+        idx_tf = self.model_index_dict.get('transfer_function')
+
+        self.autoregressive_model.F = self.F[idx_ar]
+        self.transfer_function_model.F = self.F[idx_tf]
+
+    def _update_submodels_G(self):
+        grid_ar_x, grid_ar_y = self.grid_index_dict.get('autoregressive')
+        grid_tf_x, grid_tf_y = self.grid_index_dict.get('transfer_function')
+
+        self.autoregressive_model.G = self.G[grid_ar_x, grid_ar_y]
+        self.transfer_function_model.G = self.G[grid_tf_x, grid_tf_y]
+
     def _update_submodels_moments(self):
-        idx_arm = self.model_index_dict.get('arm')
-        idx_tfm = self.model_index_dict.get('tfm')
+        idx_ar = self.model_index_dict.get('autoregressive')
+        idx_tf = self.model_index_dict.get('transfer_function')
 
-        grid_arm_x, grid_arm_y = self.grid_index_dict.get('arm')
-        grid_tfm_x, grid_tfm_y = self.grid_index_dict.get('tfm')
+        grid_ar_x, grid_ar_y = self.grid_index_dict.get('autoregressive')
+        grid_tf_x, grid_tf_y = self.grid_index_dict.get('transfer_function')
 
-        self.arm.m = self.m[idx_arm]
-        self.tfm.m = self.m[idx_tfm]
+        self.autoregressive_model.m = self.m[idx_ar]
+        self.transfer_function_model.m = self.m[idx_tf]
 
-        self.arm.C = self.C[grid_arm_x, grid_arm_y]
-        self.tfm.C = self.C[grid_tfm_x, grid_tfm_y]
+        self.autoregressive_model.C = self.C[grid_ar_x, grid_ar_y]
+        self.transfer_function_model.C = self.C[grid_tf_x, grid_tf_y]
 
-        self.arm.s = self.s
-        self.tfm.s = self.s
+        self.autoregressive_model.s = self.s
+        self.transfer_function_model.s = self.s
 
-        if self.arm.order > 0:
+        if self.autoregressive_model.order > 0:
             self.v = 0
         else:
             self.v = self.s

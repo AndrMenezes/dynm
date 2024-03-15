@@ -1,7 +1,7 @@
 """Test autoregressive model parameters estimation."""
 import numpy as np
 import unittest
-from dynm.analysis import Analysis
+from dynm.BayesianDynamicModel import BayesianDynamicModel
 from dynm.utils.format_input import compute_lagged_values
 from copy import copy
 
@@ -95,7 +95,7 @@ X = {'tfm': x}
 
 
 class TestMultipleTransferFunction(unittest.TestCase):
-    """Tests Analysis results for Transfer Function Model."""
+    """Tests BayesianDynamicModel results for Transfer Function Model."""
 
     def test__estimates_known_W(self):
         """Test parameters estimation with know W."""
@@ -106,7 +106,8 @@ class TestMultipleTransferFunction(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict, V=sd_y**2).fit(y=y, X=X)
+        mod = BayesianDynamicModel(model_dict=model_dict, V=sd_y**2)\
+            .fit(y=y, X=X)
         m = mod.m
 
         self.assertTrue(np.abs(m[2] - true_lambda_1) < .1)
@@ -124,7 +125,7 @@ class TestMultipleTransferFunction(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=y, X=X)
+        mod = BayesianDynamicModel(model_dict=model_dict).fit(y=y, X=X)
         m = mod.m
 
         self.assertTrue(np.abs(m[2] - true_lambda_1) < .1)
@@ -134,7 +135,7 @@ class TestMultipleTransferFunction(unittest.TestCase):
         self.assertTrue(np.abs(m[8] - true_lambda_4) < .1)
         self.assertTrue(np.abs(m[9] - true_gamma_2) < 1)
 
-    def test__analysis_with_nan(self):
+    def test__BayesianDynamicModel_with_nan(self):
         """Test parameters estimation with nan in y."""
         model_dict = {
             'tfm': {'m0': m0, 'C0': C0, 'gamma_order': 1, 'lambda_order': 2,
@@ -145,7 +146,8 @@ class TestMultipleTransferFunction(unittest.TestCase):
         copy_y[50] = np.nan
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=copy_y, X=X)
+        mod = BayesianDynamicModel(model_dict=model_dict)\
+            .fit(y=copy_y, X=X)
         forecast_df = mod.dict_filter.get('predictive')
         m = mod.m
 
@@ -172,7 +174,8 @@ class TestMultipleTransferFunction(unittest.TestCase):
         te__X = {'tfm': x[450:, :, :]}
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=tr__y, X=tr__X)
+        mod = BayesianDynamicModel(model_dict=model_dict)\
+            .fit(y=tr__y, X=tr__X)
 
         # Forecasting
         forecast_results = mod._predict(k=50, X=te__X)
@@ -194,7 +197,8 @@ class TestMultipleTransferFunction(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=y, X=X)
+        mod = BayesianDynamicModel(model_dict=model_dict)\
+            .fit(y=y, X=X)
 
         # Forecasting
         xte_2d = np.array([1, 1]).reshape(2, 1)
@@ -221,7 +225,8 @@ class TestMultipleTransferFunction(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=y, X=X, smooth=True)
+        mod = BayesianDynamicModel(model_dict=model_dict)\
+            .fit(y=y, X=X, smooth=True)
         smooth_posterior = mod.dict_smooth.get('posterior')
 
         min_var = smooth_posterior.variance.min()
@@ -235,7 +240,8 @@ class TestMultipleTransferFunction(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=y, X=X, smooth=True)
+        mod = BayesianDynamicModel(model_dict=model_dict)\
+            .fit(y=y, X=X, smooth=True)
         smooth_predictive = mod.dict_smooth.get('predictive')
 
         min_var = smooth_predictive.q.min()
@@ -249,7 +255,8 @@ class TestMultipleTransferFunction(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=y, X=X, smooth=True)
+        mod = BayesianDynamicModel(model_dict=model_dict)\
+            .fit(y=y, X=X, smooth=True)
 
         filter_predictive = mod\
             .dict_filter.get('predictive')\

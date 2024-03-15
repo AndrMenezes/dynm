@@ -1,7 +1,7 @@
 """Test dlm model parameters estimation."""
 import numpy as np
 import unittest
-from dynm.sequencial.analysis import Analysis
+from dynm.sequencial.BayesianDynamicModel import BayesianDynamicModel
 from dynm.dynamic_model import BayesianDynamicModel
 from scipy.linalg import block_diag
 
@@ -47,7 +47,7 @@ np.fill_diagonal(C0, val=[9, 9, 9, 9, 9])
 
 
 class TestDLM(unittest.TestCase):
-    """Tests Analysis results for Dynamic Linear Model."""
+    """Tests BayesianDynamicModel results for Dynamic Linear Model."""
 
     def test__estimates_known_W_and_V(self):
         """Test parameters estimation with know W and V."""
@@ -63,7 +63,7 @@ class TestDLM(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict, V=sd_y**2).fit(y=y)
+        mod = BayesianDynamicModel(model_dict=model_dict, V=sd_y**2).fit(y=y)
         forecast_df = mod.dict_filter.get('predictive')
 
         mape = np.mean(np.abs(forecast_df.f - forecast_df.y) / forecast_df.y)
@@ -84,7 +84,7 @@ class TestDLM(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict, V=sd_y**2).fit(y=y)
+        mod = BayesianDynamicModel(model_dict=model_dict, V=sd_y**2).fit(y=y)
         forecast_df = mod.dict_filter.get('predictive')
 
         mape = np.mean(np.abs(forecast_df.f - forecast_df.y) / forecast_df.y)
@@ -109,7 +109,7 @@ class TestDLM(unittest.TestCase):
         te__y = y[60:]
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=tr__y)
+        mod = BayesianDynamicModel(model_dict=model_dict).fit(y=tr__y)
 
         # Forecasting
         forecast_results = mod._predict(k=20)
@@ -132,7 +132,7 @@ class TestDLM(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=y)
+        mod = BayesianDynamicModel(model_dict=model_dict).fit(y=y)
 
         # Forecasting
         f, q = mod._calc_fq()
@@ -161,7 +161,7 @@ class TestDLM(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=y, smooth=True)
+        mod = BayesianDynamicModel(model_dict=model_dict).fit(y=y, smooth=True)
         smooth_posterior = mod.dict_smooth.get('posterior')
 
         min_var = smooth_posterior.variance.min()
@@ -181,7 +181,7 @@ class TestDLM(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=y, smooth=True)
+        mod = BayesianDynamicModel(model_dict=model_dict).fit(y=y, smooth=True)
         smooth_predictive = mod.dict_smooth.get('predictive')
 
         min_var = smooth_predictive.q.min()
@@ -201,7 +201,7 @@ class TestDLM(unittest.TestCase):
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=y, smooth=True)
+        mod = BayesianDynamicModel(model_dict=model_dict).fit(y=y, smooth=True)
 
         filter_predictive = mod\
             .dict_filter.get('predictive')\

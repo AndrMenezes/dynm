@@ -7,15 +7,15 @@ def set_X_dict(mod, nobs: int, X: dict = {}):
     copy_X = X.copy()
 
     # Organize transfer function values
-    if X.get('dlm') is None:
+    if X.get('regression') is None:
         x = np.array([None]*(nobs+1)).reshape(-1, 1)
-        copy_X['dlm'] = x
+        copy_X['regression'] = x
 
-    if X.get('tfm') is None:
-        ntfm = mod.tfm.ntfm
-        ngamma = mod.tfm.gamma_order
+    if X.get('transfer_function') is None:
+        ntfm = mod.dnm.transfer_function_model.ntfm
+        ngamma = mod.dnm.transfer_function_model.gamma_order
         z = np.array([None] * nobs * ntfm * ngamma).reshape(nobs, ntfm, ngamma)
-        copy_X['tfm'] = z
+        copy_X['transfer_function'] = z
 
     return copy_X
 

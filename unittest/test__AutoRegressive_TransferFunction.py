@@ -1,7 +1,7 @@
 """Test autoregressive model parameters estimation."""
 import numpy as np
 import unittest
-from dynm.analysis import Analysis
+from dynm.dynamic_model import BayesianDynamicModel
 from dynm.utils.format_input import compute_lagged_values
 from copy import copy
 
@@ -65,23 +65,36 @@ np.fill_diagonal(arm_W, val=[sd_y**2, 0, 0, 0])
 np.fill_diagonal(tfm_W, val=[0, 0, 0, 0])
 
 x = compute_lagged_values(X=x.reshape(-1, 1), lags=1)
-X = {'tfm': x}
+X = {"transfer_function": x}
 
 
 class TestAutoregressiveTransferFunction(unittest.TestCase):
-    """Tests Analysis results for Transfer Function + AutoRegressive Model."""
+    """
+    Tests BayesianDynamicModel results for
+    Transfer Function + AutoRegressive Model.
+    """
 
     def test__estimates_known_W(self):
         """Test parameters estimation with know W."""
         model_dict = {
-            'arm': {'m0': arm_m0, 'C0': arm_C0, 'order': 2, "W": arm_W},
-            'tfm': {'m0': tfm_m0, 'C0': tfm_C0,
-                    'gamma_order': 1, 'lambda_order': 2,
-                    "W": tfm_W, "ntfm": 1}
+            "autoregressive": {
+                'm0': arm_m0,
+                'C0': arm_C0,
+                'order': 2, "W": arm_W
+            },
+            "transfer_function": {
+                'm0': tfm_m0,
+                'C0': tfm_C0,
+                'gamma_order': 1,
+                'lambda_order': 2,
+                "W": tfm_W,
+                "ntfm": 1
+            }
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict, V=sd_y**2).fit(y=y, X=X)
+        mod = BayesianDynamicModel(model_dict=model_dict, V=sd_y**2)\
+            .fit(y=y, X=X)
         m = mod.m
 
         self.assertTrue(np.abs(m[2] - phi_1) < .1)
@@ -93,14 +106,25 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
     def test__estimates_discount(self):
         """Test parameters estimation with discount."""
         model_dict = {
-            'arm': {'m0': arm_m0, 'C0': arm_C0, 'order': 2, "del": arm_del},
-            'tfm': {'m0': tfm_m0, 'C0': tfm_C0,
-                    'gamma_order': 1, 'lambda_order': 2,
-                    "del": tfm_del, "ntfm": 1}
+            "autoregressive": {
+                "m0": arm_m0,
+                "C0": arm_C0,
+                "order": 2,
+                "del": arm_del
+            },
+            "transfer_function": {
+                "m0": tfm_m0,
+                "C0": tfm_C0,
+                "gamma_order": 1,
+                "lambda_order": 2,
+                "del": tfm_del,
+                "ntfm": 1
+            }
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=y, X=X, smooth=True)
+        mod = BayesianDynamicModel(model_dict=model_dict)\
+            .fit(y=y, X=X, smooth=True)
         m = mod.m
 
         self.assertTrue(np.abs(m[2] - phi_1) < .25)
@@ -109,20 +133,30 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
         self.assertTrue(np.abs(m[7] - lambda_2) < .1)
         self.assertTrue(np.abs(m[8] - gamma) < .1)
 
-    def test__analysis_with_nan(self):
+    def test__BayesianDynamicModel_with_nan(self):
         """Test parameters estimation with nan in y."""
         model_dict = {
-            'arm': {'m0': arm_m0, 'C0': arm_C0, 'order': 2, "del": arm_del},
-            'tfm': {'m0': tfm_m0, 'C0': tfm_C0,
-                    'gamma_order': 1, 'lambda_order': 2,
-                    "del": tfm_del, "ntfm": 1}
+            "autoregressive": {
+                "m0": arm_m0,
+                "C0": arm_C0,
+                "order": 2,
+                "del": arm_del
+            },
+            "transfer_function": {
+                "m0": tfm_m0,
+                "C0": tfm_C0,
+                "gamma_order": 1,
+                "lambda_order": 2,
+                "del": tfm_del,
+                "ntfm": 1
+            }
         }
 
         copy_y = copy(y)
         copy_y[50] = np.nan
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=copy_y, X=X)
+        mod = BayesianDynamicModel(model_dict=model_dict).fit(y=copy_y, X=X)
         forecast_df = mod.dict_filter.get('predictive')
         m = mod.m
 
@@ -136,21 +170,31 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
     def test__predict(self):
         """Test k steps a head performance."""
         model_dict = {
-            'arm': {'m0': arm_m0, 'C0': arm_C0, 'order': 2, "del": arm_del},
-            'tfm': {'m0': tfm_m0, 'C0': tfm_C0,
-                    'gamma_order': 1, 'lambda_order': 2,
-                    "del": tfm_del, "ntfm": 1}
+            "autoregressive": {
+                "m0": arm_m0,
+                "C0": arm_C0,
+                "order": 2,
+                "del": arm_del
+            },
+            "transfer_function": {
+                "m0": tfm_m0,
+                "C0": tfm_C0,
+                "gamma_order": 1,
+                "lambda_order": 2,
+                "del": tfm_del,
+                "ntfm": 1
+            }
         }
 
         # Insample and outsample sets
         tr__y = y[:450]
         te__y = y[450:]
 
-        tr__X = {'tfm': x[:450, :, :]}
-        te__X = {'tfm': x[450:, :, :]}
+        tr__X = {"transfer_function": x[:450, :, :]}
+        te__X = {"transfer_function": x[450:, :, :]}
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=tr__y, X=tr__X)
+        mod = BayesianDynamicModel(model_dict=model_dict).fit(y=tr__y, X=tr__X)
 
         # Forecasting
         forecast_results = mod._predict(k=50, X=te__X)
@@ -167,21 +211,31 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
     def test__predict_calc_fq_values(self):
         """Test k steps a head values."""
         model_dict = {
-            'arm': {'m0': arm_m0, 'C0': arm_C0, 'order': 2, "del": arm_del},
-            'tfm': {'m0': tfm_m0, 'C0': tfm_C0,
-                    'gamma_order': 1, 'lambda_order': 2,
-                    "del": tfm_del, "ntfm": 1}
+            "autoregressive": {
+                "m0": arm_m0,
+                "C0": arm_C0,
+                "order": 2,
+                "del": arm_del
+            },
+            "transfer_function": {
+                "m0": tfm_m0,
+                "C0": tfm_C0,
+                "gamma_order": 1,
+                "lambda_order": 2,
+                "del": tfm_del,
+                "ntfm": 1
+            }
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=y, X=X)
+        mod = BayesianDynamicModel(model_dict=model_dict).fit(y=y, X=X)
 
         # Forecasting
         xte_2d = np.array([1]).reshape(1, 1)
         xte_3d = np.array([1]).reshape(1, 1, 1)
 
-        Xte_2d = {'tfm': xte_2d}
-        Xte_3d = {'tfm': xte_3d}
+        Xte_2d = {"transfer_function": xte_2d}
+        Xte_3d = {"transfer_function": xte_3d}
         f, q = mod._calc_fq(X=Xte_2d)
 
         forecast_df = mod\
@@ -196,14 +250,25 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
     def test__smoothed_posterior_variance(self):
         """Test smooth posterior variance."""
         model_dict = {
-            'arm': {'m0': arm_m0, 'C0': arm_C0, 'order': 2, "del": arm_del},
-            'tfm': {'m0': tfm_m0, 'C0': tfm_C0,
-                    'gamma_order': 1, 'lambda_order': 2,
-                    "del": tfm_del, "ntfm": 1}
+            "autoregressive": {
+                "m0": arm_m0,
+                "C0": arm_C0,
+                "order": 2,
+                "del": arm_del
+            },
+            "transfer_function": {
+                "m0": tfm_m0,
+                "C0": tfm_C0,
+                "gamma_order": 1,
+                "lambda_order": 2,
+                "del": tfm_del,
+                "ntfm": 1
+            }
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=y, X=X, smooth=True)
+        mod = BayesianDynamicModel(model_dict=model_dict)\
+            .fit(y=y, X=X, smooth=True)
         smooth_posterior = mod.dict_smooth.get('posterior')
 
         min_var = smooth_posterior.variance.min()
@@ -212,14 +277,25 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
     def test__smoothed_predictive_variance(self):
         """Test smooth predictive variance."""
         model_dict = {
-            'arm': {'m0': arm_m0, 'C0': arm_C0, 'order': 2, "del": arm_del},
-            'tfm': {'m0': tfm_m0, 'C0': tfm_C0,
-                    'gamma_order': 1, 'lambda_order': 2,
-                    "del": tfm_del, "ntfm": 1}
+            "autoregressive": {
+                "m0": arm_m0,
+                "C0": arm_C0,
+                "order": 2,
+                "del": arm_del
+            },
+            "transfer_function": {
+                "m0": tfm_m0,
+                "C0": tfm_C0,
+                "gamma_order": 1,
+                "lambda_order": 2,
+                "del": tfm_del,
+                "ntfm": 1
+            }
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=y, X=X, smooth=True)
+        mod = BayesianDynamicModel(model_dict=model_dict)\
+            .fit(y=y, X=X, smooth=True)
         smooth_predictive = mod.dict_smooth.get('predictive')
 
         min_var = smooth_predictive.q.min()
@@ -228,15 +304,25 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
     def test__smoothed_predictive_errors(self):
         """Test smooth predictive mape."""
         model_dict = {
-            'arm': {'m0': arm_m0, 'C0': arm_C0, 'order': 2, "del": arm_del},
-            'tfm': {'m0': tfm_m0, 'C0': tfm_C0,
-                    'gamma_order': 1, 'lambda_order': 2,
-                    "del": tfm_del, "ntfm": 1}
-
+            "autoregressive": {
+                "m0": arm_m0,
+                "C0": arm_C0,
+                "order": 2,
+                "del": arm_del
+            },
+            "transfer_function": {
+                "m0": tfm_m0,
+                "C0": tfm_C0,
+                "gamma_order": 1,
+                "lambda_order": 2,
+                "del": tfm_del,
+                "ntfm": 1
+            }
         }
 
         # Fit
-        mod = Analysis(model_dict=model_dict).fit(y=y, X=X, smooth=True)
+        mod = BayesianDynamicModel(model_dict=model_dict)\
+            .fit(y=y, X=X, smooth=True)
 
         filter_predictive = mod\
             .dict_filter.get('predictive')\
