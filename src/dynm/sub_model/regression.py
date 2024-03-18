@@ -45,7 +45,7 @@ class Regression():
     def _build_F(self, x: np.array):
         nregn = self.nregn
         F = np.ones(nregn) * x
-        return F
+        return F.reshape(-1, 1)
 
     def _build_G(self):
         nregn = self.nregn

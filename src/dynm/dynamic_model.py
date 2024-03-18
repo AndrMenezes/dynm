@@ -2,7 +2,6 @@
 import numpy as np
 import pandas as pd
 from copy import deepcopy as copy
-from dynm.utils.algebra import _calc_predictive_mean_and_var
 from dynm.superposition_block.dlm import DynamicLinearModel
 from dynm.superposition_block.dnm import DynamicNonLinearModel
 from scipy.linalg import block_diag
@@ -100,8 +99,8 @@ class BayesianDynamicModel():
         idx_dlm = np.arange(0, block_idx[0])
         idx_dnm = np.arange(block_idx[0], block_idx[1])
 
-        grid_dlm_x, grid_dlm_y = np.meshgrid(idx_dlm, idx_dlm)
-        grid_dnm_x, grid_dnm_y = np.meshgrid(idx_dnm, idx_dnm)
+        grid_dlm_y, grid_dlm_x = np.meshgrid(idx_dlm, idx_dlm, indexing='xy')
+        grid_dnm_y, grid_dnm_x = np.meshgrid(idx_dnm, idx_dnm, indexing='xy')
 
         self.model_index_dict = {
             'dlm': idx_dlm,
@@ -161,7 +160,7 @@ class BayesianDynamicModel():
 
     def _calc_predictive_mean_and_var(self):
         f = np.ravel(self.F.T @ self.a)[0]
-        q = np.ravel(self.F.T @ self.R @ self.F + self.s)[0]
+        q = np.ravel(self.F.T @ self.R @ self.F + self.v)[0]
         return f, q
 
     def _update(self, y: float, X: dict):
@@ -211,7 +210,6 @@ class BayesianDynamicModel():
         self.R = self.R
         self.m = self.a + self.A * self.e
         self.C = self.r * (self.R - self.q * self.A @ self.A.T)
-        self._update_superposition_block_moments()
 
     def _update_superposition_block_F(self):
         idx_dlm = self.model_index_dict.get('dlm')
@@ -298,41 +296,47 @@ class BayesianDynamicModel():
             k: int,
             X: dict = {},
             level: float = 0.05):
-        ak = copy(self.m)
-        Rk = copy(self.C)
+        copy_mod = copy(self)
+        copy_mod.ak = copy(self.m)
+        copy_mod.Rk = copy(self.C)
 
         dict_state_params = {'a': [], 'R': []}
         dict_kstep_forecast = {'t': [], 'f': [], 'q': []}
 
-        Xt = {'dlm': [], 'tfm': []}
-        copy_X = set_X_dict(mod=self, nobs=k, X=X)
+        Xt = {'regression': [], 'transfer_function': []}
+        copy_X = set_X_dict(mod=copy_mod, nobs=k, X=X)
 
         # K steps-a-head forecast
         for t in range(k):
-            Xt['dlm'] = copy_X['dlm'][t, :]
-            Xt['tfm'] = copy_X['tfm'][t, :, :]
+            Xt['regression'] = copy_X['regression'][t, :]
+            Xt['transfer_function'] = copy_X['transfer_function'][t, :, :]
 
             # Predictive distribution moments
-            F = self._build_F(X=Xt)
-            G = self._build_G(X=Xt)
-            W = self._build_W(G=G)
-            h = self._build_h(G=G)
+            copy_mod.F = copy_mod._build_F(x=Xt['regression'])
+            copy_mod.G = copy_mod._build_G(x=Xt['transfer_function'])
 
-            ak = G @ ak + h
-            Rk = G @ Rk @ G.T + W
+            copy_mod._update_superposition_block_F()
+            copy_mod._update_superposition_block_G()
+
+            copy_mod.W = copy_mod._build_W()
+            copy_mod.h = copy_mod._build_h()
+
+            copy_mod.ak = copy_mod.G @ copy_mod.ak + copy_mod.h
+            copy_mod.Rk = copy_mod.G @ copy_mod.Rk @ copy_mod.G.T + copy_mod.W
 
             # Predictive
-            f, q = _calc_predictive_mean_and_var(
-                F=F, a=ak, R=Rk, s=self.v)
+            copy_mod.f, copy_mod.q = copy_mod._calc_predictive_mean_and_var()
 
             # Append results
             dict_kstep_forecast['t'].append(t+1)
-            dict_kstep_forecast['f'].append(np.ravel(f)[0])
-            dict_kstep_forecast['q'].append(np.ravel(q)[0])
+            dict_kstep_forecast['f'].append(copy_mod.f)
+            dict_kstep_forecast['q'].append(copy_mod.q)
 
             # Dict state params
-            dict_state_params['a'].append(ak)
-            dict_state_params['R'].append(Rk)
+            dict_state_params['a'].append(copy_mod.ak)
+            dict_state_params['R'].append(copy_mod.Rk)
+
+        del copy_mod
 
         df_predictive = pd.DataFrame(dict_kstep_forecast)
 

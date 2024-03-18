@@ -148,9 +148,12 @@ class DynamicLinearModel():
         idx_regn = np.arange(block_idx[0], block_idx[1])
         idx_seas = np.arange(block_idx[1], block_idx[2])
 
-        grid_poly_x, grid_poly_y = np.meshgrid(idx_poly, idx_poly)
-        grid_regn_x, grid_regn_y = np.meshgrid(idx_regn, idx_regn)
-        grid_seas_x, grid_seas_y = np.meshgrid(idx_seas, idx_seas)
+        grid_poly_y, grid_poly_x = np.meshgrid(
+            idx_poly, idx_poly, indexing='xy')
+        grid_regn_y, grid_regn_x = np.meshgrid(
+            idx_regn, idx_regn, indexing='xy')
+        grid_seas_y, grid_seas_x = np.meshgrid(
+            idx_seas, idx_seas, indexing='xy')
 
         self.model_index_dict = {
             'polynomial': idx_poly,
@@ -185,7 +188,7 @@ class DynamicLinearModel():
         F_regn = self.regression_model._update_F(x=x)
         F_seas = self.seasonal_model.F
 
-        F = np.block([F_poly, F_regn, F_seas]).reshape(-1, 1)
+        F = np.vstack([F_poly, F_regn, F_seas])
 
         return F
 

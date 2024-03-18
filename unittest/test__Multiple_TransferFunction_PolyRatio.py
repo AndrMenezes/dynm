@@ -1,7 +1,7 @@
-"""Test autoregressive model parameters estimation."""
+"""Test transfer function model parameters estimation."""
 import numpy as np
 import unittest
-from dynm.BayesianDynamicModel import BayesianDynamicModel
+from dynm.dynamic_model import BayesianDynamicModel
 from dynm.utils.format_input import compute_lagged_values
 from copy import copy
 
@@ -66,7 +66,7 @@ np.fill_diagonal(C0, val=[9, .001, 5, 5, 1, 1] * 2)
 np.fill_diagonal(W, val=[0, 0, 0, 0, 0, 0] * 2)
 
 x = compute_lagged_values(X=x, lags=2)
-X = {'tfm': x}
+X = {"transfer_function": x}
 
 
 class TestMultipleTransferFunctionPolyRatio(unittest.TestCase):
@@ -75,9 +75,14 @@ class TestMultipleTransferFunctionPolyRatio(unittest.TestCase):
     def test__estimates_known_W_and_V(self):
         """Test parameters estimation with know W and V."""
         model_dict = {
-            'tfm': {'m0': m0, 'C0': C0,
-                    'gamma_order': 2, 'lambda_order': 2,
-                    "W": W, "ntfm": 2}
+            "transfer_function": {
+                "m0": m0,
+                "C0": C0,
+                "gamma_order": 2,
+                "lambda_order": 2,
+                "ntfm": 2,
+                "W": W
+            }
         }
 
         # Fit
@@ -98,9 +103,14 @@ class TestMultipleTransferFunctionPolyRatio(unittest.TestCase):
     def test__estimates_discount(self):
         """Test parameters estimation with discount."""
         model_dict = {
-            'tfm': {'m0': m0, 'C0': C0,
-                    'gamma_order': 2, 'lambda_order': 2,
-                    "ntfm": 2, "del": np.repeat(.995, 12)}
+            "transfer_function": {
+                "m0": m0,
+                "C0": C0,
+                "gamma_order": 2,
+                "lambda_order": 2,
+                "ntfm": 2,
+                "discount": np.repeat(.995, 12)
+            }
         }
 
         # Fit
@@ -120,9 +130,14 @@ class TestMultipleTransferFunctionPolyRatio(unittest.TestCase):
     def test__BayesianDynamicModel_with_nan(self):
         """Test parameters estimation with nan in y."""
         model_dict = {
-            'tfm': {'m0': m0, 'C0': C0,
-                    'gamma_order': 2, 'lambda_order': 2,
-                    "ntfm": 2, "del": np.repeat(.995, 12)}
+            "transfer_function": {
+                "m0": m0,
+                "C0": C0,
+                "gamma_order": 2,
+                "lambda_order": 2,
+                "ntfm": 2,
+                "discount": np.repeat(.995, 12)
+            }
         }
 
         copy_y = copy(y)
@@ -132,7 +147,7 @@ class TestMultipleTransferFunctionPolyRatio(unittest.TestCase):
         mod = BayesianDynamicModel(model_dict=model_dict)
         fit_results = mod.fit(y=copy_y, X=X)
 
-        forecast_df = fit_results.dict_filter.get('predictive')
+        forecast_df = fit_results.dict_filter.get("predictive")
         m = mod.m
 
         self.assertTrue(np.abs(m[2] - tfm1__lambda_1) < .2)
@@ -147,28 +162,33 @@ class TestMultipleTransferFunctionPolyRatio(unittest.TestCase):
 
         self.assertTrue(forecast_df.f.notnull().all())
 
-    def test__predict_calc_fq_performance(self):
+    def test__predict_calc_predictive_mean_and_var_performance(self):
         """Test k steps a head performance."""
         model_dict = {
-            'tfm': {'m0': m0, 'C0': C0,
-                    'gamma_order': 2, 'lambda_order': 2,
-                    "ntfm": 2, "del": np.repeat(.995, 12)}
+            "transfer_function": {
+                "m0": m0,
+                "C0": C0,
+                "gamma_order": 2,
+                "lambda_order": 2,
+                "ntfm": 2,
+                "discount": np.repeat(.995, 12)
+            }
         }
 
         # Insample and outsample sets
         tr__y = y[:450]
         te__y = y[450:]
 
-        tr__X = {'tfm': x[:450, :, :]}
-        te__X = {'tfm': x[450:, :, :]}
+        tr__X = {"transfer_function": x[:450, :, :]}
+        te__X = {"transfer_function": x[450:, :, :]}
 
         # Fit
         mod = BayesianDynamicModel(model_dict=model_dict).fit(y=tr__y, X=tr__X)
 
         # Forecasting
         forecast_results = mod._predict(k=50, X=te__X)
-        forecast_df = forecast_results.get('predictive')
-        parameters_df = forecast_results.get('parameters')
+        forecast_df = forecast_results.get("predictive")
+        parameters_df = forecast_results.get("parameters")
 
         mape = np.mean(np.abs(forecast_df.f - te__y) / te__y)
 
@@ -177,28 +197,29 @@ class TestMultipleTransferFunctionPolyRatio(unittest.TestCase):
         self.assertTrue(forecast_df.notnull().all().all())
         self.assertTrue(parameters_df.notnull().all().all())
 
-    def test__k_steps_ahead_calc_fq_values(self):
+    def test__k_steps_ahead_calc_predictive_mean_and_var_values(self):
         """Test k steps a head performance."""
         model_dict = {
-            'tfm': {'m0': m0, 'C0': C0,
-                    'gamma_order': 2, 'lambda_order': 2,
-                    "ntfm": 2, "del": np.repeat(.995, 12)}
+            "transfer_function": {
+                "m0": m0,
+                "C0": C0,
+                "gamma_order": 2,
+                "lambda_order": 2,
+                "ntfm": 2,
+                "discount": np.repeat(.995, 12)
+            }
         }
 
         # Fit
         mod = BayesianDynamicModel(model_dict=model_dict).fit(y=y, X=X)
 
         # Forecasting
-        xte_2d = np.array([1, 1, 1, 1]).reshape(2, 2)
-        xte_3d = np.array([1, 1, 1, 1]).reshape(1, 2, 2)
-
-        Xte_2d = {'tfm': xte_2d}
-        Xte_3d = {'tfm': xte_3d}
-        f, q = mod._calc_fq(X=Xte_2d)
+        Xt = {"transfer_function": X["transfer_function"][-1:, :, :]}
+        f, q = mod._calc_predictive_mean_and_var()
 
         forecast_df = mod\
-            ._predict(k=1, X=Xte_3d)\
-            .get('predictive')
+            ._predict(k=1, X=Xt)\
+            .get("predictive")
         fk = forecast_df.f.values
         qk = forecast_df.q.values
 
@@ -208,15 +229,20 @@ class TestMultipleTransferFunctionPolyRatio(unittest.TestCase):
     def test__smoothed_posterior_variance(self):
         """Test smooth posterior variance."""
         model_dict = {
-            'tfm': {'m0': m0, 'C0': C0,
-                    'gamma_order': 2, 'lambda_order': 2,
-                    "ntfm": 2, "del": np.repeat(.995, 12)}
+            "transfer_function": {
+                "m0": m0,
+                "C0": C0,
+                "gamma_order": 2,
+                "lambda_order": 2,
+                "ntfm": 2,
+                "discount": np.repeat(.995, 12)
+            }
         }
 
         # Fit
         mod = BayesianDynamicModel(model_dict=model_dict)\
             .fit(y=y, X=X, smooth=True)
-        smooth_posterior = mod.dict_smooth.get('posterior')
+        smooth_posterior = mod.dict_smooth.get("posterior")
 
         min_var = smooth_posterior.variance.min()
         self.assertTrue(min_var >= 0.0)
@@ -224,15 +250,20 @@ class TestMultipleTransferFunctionPolyRatio(unittest.TestCase):
     def test__smoothed_predictive_variance(self):
         """Test smooth predictive variance."""
         model_dict = {
-            'tfm': {'m0': m0, 'C0': C0,
-                    'gamma_order': 2, 'lambda_order': 2,
-                    "ntfm": 2, "del": np.repeat(.995, 12)}
+            "transfer_function": {
+                "m0": m0,
+                "C0": C0,
+                "gamma_order": 2,
+                "lambda_order": 2,
+                "ntfm": 2,
+                "discount": np.repeat(.995, 12)
+            }
         }
 
         # Fit
         mod = BayesianDynamicModel(model_dict=model_dict)\
             .fit(y=y, X=X, smooth=True)
-        smooth_predictive = mod.dict_smooth.get('predictive')
+        smooth_predictive = mod.dict_smooth.get("predictive")
 
         min_var = smooth_predictive.q.min()
         self.assertTrue(min_var >= 0.0)
@@ -240,9 +271,14 @@ class TestMultipleTransferFunctionPolyRatio(unittest.TestCase):
     def test__smoothed_predictive_errors(self):
         """Test smooth predictive mape."""
         model_dict = {
-            'tfm': {'m0': m0, 'C0': C0,
-                    'gamma_order': 2, 'lambda_order': 2,
-                    "ntfm": 2, "del": np.repeat(.995, 12)}
+            "transfer_function": {
+                "m0": m0,
+                "C0": C0,
+                "gamma_order": 2,
+                "lambda_order": 2,
+                "ntfm": 2,
+                "discount": np.repeat(.995, 12)
+            }
         }
 
         # Fit
@@ -250,12 +286,12 @@ class TestMultipleTransferFunctionPolyRatio(unittest.TestCase):
             .fit(y=y, X=X, smooth=True)
 
         filter_predictive = mod\
-            .dict_filter.get('predictive')\
-            .sort_values('t')
+            .dict_filter.get("predictive")\
+            .sort_values("t")
 
         smooth_predictive = mod\
-            .dict_smooth.get('predictive')\
-            .sort_values('t')
+            .dict_smooth.get("predictive")\
+            .sort_values("t")
 
         f = filter_predictive.f.values
         fk = smooth_predictive.f.values

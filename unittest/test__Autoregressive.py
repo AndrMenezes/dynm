@@ -65,7 +65,7 @@ class TestAutoregressive(unittest.TestCase):
                 "m0": m0,
                 "C0": C0,
                 "order": 2,
-                "del": np.array([1, 1, 1, 1])
+                "discount": np.array([1, 1, 1, 1])
             }
         }
 
@@ -83,7 +83,7 @@ class TestAutoregressive(unittest.TestCase):
                 "m0": m0,
                 "C0": C0,
                 "order": 2,
-                "del": np.array([1, 1, 1, 1])
+                "discount": np.array([1, 1, 1, 1])
             }
         }
 
@@ -93,21 +93,21 @@ class TestAutoregressive(unittest.TestCase):
         # Fit
         mod = BayesianDynamicModel(model_dict=model_dict).fit(y=copy_y)
 
-        forecast_df = mod.dict_filter.get('predictive')
+        forecast_df = mod.dict_filter.get("predictive")
         m = mod.m
 
         self.assertTrue(np.abs(m[2] - phi_1) < .2)
         self.assertTrue(np.abs(m[3] - phi_2) < .2)
         self.assertTrue(forecast_df.f.notnull().all())
 
-    def test__predict_calc_fq_performance(self):
+    def test__predict_calc_predictive_mean_and_var_performance(self):
         """Test k steps a head performance."""
         model_dict = {
             "autoregressive": {
                 "m0": m0,
                 "C0": C0,
                 "order": 2,
-                "del": np.array([1, 1, 1, 1])
+                "discount": np.array([1, 1, 1, 1])
             }
         }
 
@@ -120,8 +120,8 @@ class TestAutoregressive(unittest.TestCase):
 
         # Forecasting
         forecast_results = mod._predict(k=50)
-        forecast_df = forecast_results.get('predictive')
-        parameters_df = forecast_results.get('parameters')
+        forecast_df = forecast_results.get("predictive")
+        parameters_df = forecast_results.get("parameters")
 
         mape = np.mean(np.abs(forecast_df.f - te__y) / te__y)
 
@@ -130,14 +130,14 @@ class TestAutoregressive(unittest.TestCase):
         self.assertTrue(forecast_df.notnull().all().all())
         self.assertTrue(parameters_df.notnull().all().all())
 
-    def test__k_steps_ahead_calc_fq_values(self):
+    def test__k_steps_ahead_calc_predictive_mean_and_var_values(self):
         """Test k steps a head values."""
         model_dict = {
             "autoregressive": {
                 "m0": m0,
                 "C0": C0,
                 "order": 2,
-                "del": np.array([1, 1, 1, 1])
+                "discount": np.array([1, 1, 1, 1])
             }
         }
 
@@ -145,11 +145,11 @@ class TestAutoregressive(unittest.TestCase):
         mod = BayesianDynamicModel(model_dict=model_dict).fit(y=y)
 
         # Forecasting
-        f, q = mod._calc_fq()
+        f, q = mod._calc_predictive_mean_and_var()
 
         forecast_df = mod\
             ._predict(k=1)\
-            .get('predictive')
+            .get("predictive")
 
         fk = forecast_df.f.values
         qk = forecast_df.q.values
@@ -164,13 +164,13 @@ class TestAutoregressive(unittest.TestCase):
                 "m0": m0,
                 "C0": C0,
                 "order": 2,
-                "del": np.array([1, 1, 1, 1])
+                "discount": np.array([1, 1, 1, 1])
             }
         }
 
         # Fit
         mod = BayesianDynamicModel(model_dict=model_dict).fit(y=y, smooth=True)
-        smooth_posterior = mod.dict_smooth.get('posterior')
+        smooth_posterior = mod.dict_smooth.get("posterior")
 
         min_var = smooth_posterior.variance.min()
         self.assertTrue(min_var >= 0.0)
@@ -182,13 +182,13 @@ class TestAutoregressive(unittest.TestCase):
                 "m0": m0,
                 "C0": C0,
                 "order": 2,
-                "del": np.array([1, 1, 1, 1])
+                "discount": np.array([1, 1, 1, 1])
             }
         }
 
         # Fit
         mod = BayesianDynamicModel(model_dict=model_dict).fit(y=y, smooth=True)
-        smooth_predictive = mod.dict_smooth.get('predictive')
+        smooth_predictive = mod.dict_smooth.get("predictive")
 
         min_var = smooth_predictive.q.min()
         self.assertTrue(min_var >= 0.0)
@@ -200,7 +200,7 @@ class TestAutoregressive(unittest.TestCase):
                 "m0": m0,
                 "C0": C0,
                 "order": 2,
-                "del": np.array([1, 1, 1, 1])
+                "discount": np.array([1, 1, 1, 1])
             }
         }
 
@@ -208,12 +208,12 @@ class TestAutoregressive(unittest.TestCase):
         mod = BayesianDynamicModel(model_dict=model_dict).fit(y=y, smooth=True)
 
         filter_predictive = mod\
-            .dict_filter.get('predictive')\
-            .sort_values('t')
+            .dict_filter.get("predictive")\
+            .sort_values("t")
 
         smooth_predictive = mod\
-            .dict_smooth.get('predictive')\
-            .sort_values('t')
+            .dict_smooth.get("predictive")\
+            .sort_values("t")
 
         f = filter_predictive.f.values
         fk = smooth_predictive.f.values

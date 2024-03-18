@@ -78,15 +78,15 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
         """Test parameters estimation with know W."""
         model_dict = {
             "autoregressive": {
-                'm0': arm_m0,
-                'C0': arm_C0,
-                'order': 2, "W": arm_W
+                "m0": arm_m0,
+                "C0": arm_C0,
+                "order": 2, "W": arm_W
             },
             "transfer_function": {
-                'm0': tfm_m0,
-                'C0': tfm_C0,
-                'gamma_order': 1,
-                'lambda_order': 2,
+                "m0": tfm_m0,
+                "C0": tfm_C0,
+                "gamma_order": 1,
+                "lambda_order": 2,
                 "W": tfm_W,
                 "ntfm": 1
             }
@@ -110,14 +110,14 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
                 "m0": arm_m0,
                 "C0": arm_C0,
                 "order": 2,
-                "del": arm_del
+                "discount": arm_del
             },
             "transfer_function": {
                 "m0": tfm_m0,
                 "C0": tfm_C0,
                 "gamma_order": 1,
                 "lambda_order": 2,
-                "del": tfm_del,
+                "discount": tfm_del,
                 "ntfm": 1
             }
         }
@@ -140,14 +140,14 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
                 "m0": arm_m0,
                 "C0": arm_C0,
                 "order": 2,
-                "del": arm_del
+                "discount": arm_del
             },
             "transfer_function": {
                 "m0": tfm_m0,
                 "C0": tfm_C0,
                 "gamma_order": 1,
                 "lambda_order": 2,
-                "del": tfm_del,
+                "discount": tfm_del,
                 "ntfm": 1
             }
         }
@@ -157,7 +157,7 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
 
         # Fit
         mod = BayesianDynamicModel(model_dict=model_dict).fit(y=copy_y, X=X)
-        forecast_df = mod.dict_filter.get('predictive')
+        forecast_df = mod.dict_filter.get("predictive")
         m = mod.m
 
         self.assertTrue(np.abs(m[2] - phi_1) < .25)
@@ -174,14 +174,14 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
                 "m0": arm_m0,
                 "C0": arm_C0,
                 "order": 2,
-                "del": arm_del
+                "discount": arm_del
             },
             "transfer_function": {
                 "m0": tfm_m0,
                 "C0": tfm_C0,
                 "gamma_order": 1,
                 "lambda_order": 2,
-                "del": tfm_del,
+                "discount": tfm_del,
                 "ntfm": 1
             }
         }
@@ -198,8 +198,8 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
 
         # Forecasting
         forecast_results = mod._predict(k=50, X=te__X)
-        forecast_df = forecast_results.get('predictive')
-        parameters_df = forecast_results.get('parameters')
+        forecast_df = forecast_results.get("predictive")
+        parameters_df = forecast_results.get("parameters")
 
         mape = np.mean(np.abs(forecast_df.f - te__y) / te__y)
 
@@ -208,21 +208,21 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
         self.assertTrue(forecast_df.notnull().all().all())
         self.assertTrue(parameters_df.notnull().all().all())
 
-    def test__predict_calc_fq_values(self):
+    def test__predict_calc_predictive_mean_and_var_values(self):
         """Test k steps a head values."""
         model_dict = {
             "autoregressive": {
                 "m0": arm_m0,
                 "C0": arm_C0,
                 "order": 2,
-                "del": arm_del
+                "discount": arm_del
             },
             "transfer_function": {
                 "m0": tfm_m0,
                 "C0": tfm_C0,
                 "gamma_order": 1,
                 "lambda_order": 2,
-                "del": tfm_del,
+                "discount": tfm_del,
                 "ntfm": 1
             }
         }
@@ -231,16 +231,12 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
         mod = BayesianDynamicModel(model_dict=model_dict).fit(y=y, X=X)
 
         # Forecasting
-        xte_2d = np.array([1]).reshape(1, 1)
-        xte_3d = np.array([1]).reshape(1, 1, 1)
-
-        Xte_2d = {"transfer_function": xte_2d}
-        Xte_3d = {"transfer_function": xte_3d}
-        f, q = mod._calc_fq(X=Xte_2d)
+        Xt = {"transfer_function": X["transfer_function"][-1:, :, :]}
+        f, q = mod._calc_predictive_mean_and_var()
 
         forecast_df = mod\
-            ._predict(k=1, X=Xte_3d)\
-            .get('predictive')
+            ._predict(k=1, X=Xt)\
+            .get("predictive")
         fk = forecast_df.f.values
         qk = forecast_df.q.values
 
@@ -254,14 +250,14 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
                 "m0": arm_m0,
                 "C0": arm_C0,
                 "order": 2,
-                "del": arm_del
+                "discount": arm_del
             },
             "transfer_function": {
                 "m0": tfm_m0,
                 "C0": tfm_C0,
                 "gamma_order": 1,
                 "lambda_order": 2,
-                "del": tfm_del,
+                "discount": tfm_del,
                 "ntfm": 1
             }
         }
@@ -269,7 +265,7 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
         # Fit
         mod = BayesianDynamicModel(model_dict=model_dict)\
             .fit(y=y, X=X, smooth=True)
-        smooth_posterior = mod.dict_smooth.get('posterior')
+        smooth_posterior = mod.dict_smooth.get("posterior")
 
         min_var = smooth_posterior.variance.min()
         self.assertTrue(min_var >= 0.0)
@@ -281,14 +277,14 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
                 "m0": arm_m0,
                 "C0": arm_C0,
                 "order": 2,
-                "del": arm_del
+                "discount": arm_del
             },
             "transfer_function": {
                 "m0": tfm_m0,
                 "C0": tfm_C0,
                 "gamma_order": 1,
                 "lambda_order": 2,
-                "del": tfm_del,
+                "discount": tfm_del,
                 "ntfm": 1
             }
         }
@@ -296,7 +292,7 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
         # Fit
         mod = BayesianDynamicModel(model_dict=model_dict)\
             .fit(y=y, X=X, smooth=True)
-        smooth_predictive = mod.dict_smooth.get('predictive')
+        smooth_predictive = mod.dict_smooth.get("predictive")
 
         min_var = smooth_predictive.q.min()
         self.assertTrue(min_var >= 0.0)
@@ -308,14 +304,14 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
                 "m0": arm_m0,
                 "C0": arm_C0,
                 "order": 2,
-                "del": arm_del
+                "discount": arm_del
             },
             "transfer_function": {
                 "m0": tfm_m0,
                 "C0": tfm_C0,
                 "gamma_order": 1,
                 "lambda_order": 2,
-                "del": tfm_del,
+                "discount": tfm_del,
                 "ntfm": 1
             }
         }
@@ -325,12 +321,12 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
             .fit(y=y, X=X, smooth=True)
 
         filter_predictive = mod\
-            .dict_filter.get('predictive')\
-            .sort_values('t')
+            .dict_filter.get("predictive")\
+            .sort_values("t")
 
         smooth_predictive = mod\
-            .dict_smooth.get('predictive')\
-            .sort_values('t')
+            .dict_smooth.get("predictive")\
+            .sort_values("t")
 
         f = filter_predictive.f.values
         fk = smooth_predictive.f.values

@@ -38,11 +38,11 @@ def _backward_smoother(mod, X: dict = {}, level: float = 0.05):
     G = mod.dict_state_evolution.get('G')
 
     # Dictionaty to save predictive and posterior parameters
-    Xk = {'dlm': [], 'tfm': []}
-    Xk['dlm'] = copy_X['dlm'][nobs-1, :]
-    Xk['tfm'] = copy_X['tfm'][nobs-1, :]
+    Xk = {'regression': [], 'transfer_function': []}
+    Xk['regression'] = copy_X['regression'][nobs-1, :]
+    Xk['transfer_function'] = copy_X['transfer_function'][nobs-1, :]
 
-    FT = mod._build_F(X=Xk)
+    FT = mod._build_F(x=Xk['regression'])
 
     ak = m[nobs-1]
     Rk = C[nobs-1]
@@ -57,10 +57,10 @@ def _backward_smoother(mod, X: dict = {}, level: float = 0.05):
 
     # Perform smoothing
     for k in range(1, nobs):
-        Xk['dlm'] = copy_X['dlm'][nobs-k, :]
-        Xk['tfm'] = copy_X['tfm'][nobs-k, :, :]
+        Xk['regression'] = copy_X['regression'][nobs-k, :]
+        Xk['transfer_function'] = copy_X['transfer_function'][nobs-k, :, :]
 
-        Fk = mod._build_F(X=Xk)
+        Fk = mod._build_F(x=Xk['regression'])
         Gk = G[nobs-k]
 
         # B_{t-k}

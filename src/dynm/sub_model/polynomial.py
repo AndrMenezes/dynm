@@ -44,21 +44,21 @@ class Polynomial():
 
     def _build_F(self):
         ntrend = self.ntrend
-        Ftrend = np.ones(ntrend)
+        F = np.ones(ntrend)
 
         if ntrend == 2:
-            Ftrend[1] = 0
+            F[1] = 0
 
-        return Ftrend
+        return F.reshape(-1, 1)
 
     def _build_G(self):
         ntrend = self.ntrend
-        Gtrend = np.identity(ntrend)
+        G = np.identity(ntrend)
 
         if ntrend == 2:
-            Gtrend[0, 1] = 1
+            G[0, 1] = 1
 
-        return Gtrend
+        return G
 
     def _update_F(self, x: np.array = None):
         F = self.F

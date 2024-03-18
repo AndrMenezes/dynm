@@ -51,7 +51,7 @@ class DynamicNonLinearModel():
             autoregressive = AutoRegressive(
                 m0=submod_dict.get('m0'),
                 C0=submod_dict.get('C0'),
-                discount=submod_dict.get('del'),
+                discount=submod_dict.get('discount'),
                 order=submod_dict.get('order'),
                 W=submod_dict.get('W'))
         else:
@@ -62,7 +62,7 @@ class DynamicNonLinearModel():
             transfer_function = TransferFunction(
                 m0=submod_dict.get('m0'),
                 C0=submod_dict.get('C0'),
-                discount=submod_dict.get('del'),
+                discount=submod_dict.get('discount'),
                 lambda_order=submod_dict.get('lambda_order'),
                 gamma_order=submod_dict.get('gamma_order'),
                 ntfm=submod_dict.get('ntfm'),
@@ -121,8 +121,8 @@ class DynamicNonLinearModel():
         idx_ar = np.arange(0, block_idx[0])
         idx_tf = np.arange(block_idx[0], block_idx[1])
 
-        grid_ar_x, grid_ar_y = np.meshgrid(idx_ar, idx_ar)
-        grid_tf_x, grid_tf_y = np.meshgrid(idx_tf, idx_tf)
+        grid_ar_y, grid_ar_x = np.meshgrid(idx_ar, idx_ar, indexing='xy')
+        grid_tf_y, grid_tf_x = np.meshgrid(idx_tf, idx_tf, indexing='xy')
 
         self.model_index_dict = {
             'autoregressive': idx_ar,
