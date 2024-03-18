@@ -5,7 +5,7 @@ import numpy as np
 def _build_W_diagonal(mod, P: np.array):
     p = P.shape[0]
     discount_matrix = np.ones([p, p])
-    np.fill_diagonal(discount_matrix, 1 / mod.discount_factors)
+    np.fill_diagonal(discount_matrix, 1 / mod.discount)
 
     W = P * discount_matrix - P
 
@@ -14,7 +14,7 @@ def _build_W_diagonal(mod, P: np.array):
 
 def _build_W_complete(mod, P: np.array):
     p = P.shape[0]
-    discount_matrix = np.ones([p, p]) / mod.discount_factors
+    discount_matrix = np.ones([p, p]) / mod.discount
 
     W = P * discount_matrix - P
 
