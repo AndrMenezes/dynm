@@ -1,6 +1,6 @@
 """Dynamic Linear Model with transfer function."""
 import numpy as np
-from dynm.utils.algebra import _build_W
+from dynm.utils.algebra import _build_W_complete
 
 
 class SeasonalFourier():
@@ -51,10 +51,10 @@ class SeasonalFourier():
         p = len(seas_harm_components)
         n = 2 * p
 
-        Fseas = np.zeros([n, 1])
-        Fseas[0:n:2] = 1
+        F = np.zeros([n, 1])
+        F[0:n:2] = 1
 
-        return Fseas.T
+        return F.reshape(-1, 1)
 
     def _build_G(self):
         seas_period = self.seas_period
@@ -62,26 +62,26 @@ class SeasonalFourier():
 
         p = len(seas_harm_components)
         n = 2 * p
-        Gseas = np.zeros([n, n])
+        G = np.zeros([n, n])
 
         for j in range(p):
             c = np.cos(2*np.pi*seas_harm_components[j] / seas_period)
             s = np.sin(2*np.pi*seas_harm_components[j] / seas_period)
             idx = 2*j
-            Gseas[idx:(idx+2), idx:(idx+2)] = np.array([[c, s], [-s, c]])
+            G[idx:(idx+2), idx:(idx+2)] = np.array([[c, s], [-s, c]])
 
-        return Gseas
+        return G
 
     def _update_F(self, x: np.array = None):
         F = self.F
         return F
 
-    def _build_P(self, G: np.array):
-        return G @ self.C @ G.T
+    def _build_P(self):
+        return self.G @ self.C @ self.G.T
 
     def _build_W(self, P: np.array):
         if self.estimate_W:
-            W = _build_W(mod=self, P=P)
+            W = _build_W_complete(mod=self, P=P)
         else:
             W = self.W
         return W

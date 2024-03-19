@@ -1,16 +1,16 @@
-"""Polynomial model in State Space form."""
+"""Regression in State Space form."""
 import numpy as np
-from dynm.utils.algebra import _build_W
+from dynm.utils.algebra import _build_W_complete
 
 
-class Polynomial():
-    """Class for defining polynomial model in state space form."""
+class Regression():
+    """Class for defining seasonal regression model in state space form."""
 
     def __init__(self,
                  m0: np.ndarray,
                  C0: np.ndarray,
-                 ntrend: int,
-                 discount: float = .98,
+                 nregn: int,
+                 discount: float = .998,
                  W: np.ndarray = None):
         """Define model.
 
@@ -27,11 +27,11 @@ class Polynomial():
             discount factor.
 
         """
-        self.ntrend = ntrend
-        self.m = m0.reshape(-1, 1)  # Validar entrada de dimensões
-        self.C = C0
-
+        self.nregn = nregn
         self.discount = discount
+
+        self.m = m0.reshape(-1, 1)
+        self.C = C0
 
         if W is None:
             self.estimate_W = True
@@ -39,37 +39,30 @@ class Polynomial():
             self.W = W
             self.estimate_W = False
 
-        self.F = self._build_F()
+        self.F = self._build_F(x=0)
         self.G = self._build_G()
 
-    def _build_F(self):
-        ntrend = self.ntrend
-        Ftrend = np.ones(ntrend)
-
-        if ntrend == 2:
-            Ftrend[1] = 0
-
-        return Ftrend
+    def _build_F(self, x: np.array):
+        nregn = self.nregn
+        F = np.ones(nregn) * x
+        return F.reshape(-1, 1)
 
     def _build_G(self):
-        ntrend = self.ntrend
-        Gtrend = np.identity(ntrend)
-
-        if ntrend == 2:
-            Gtrend[0, 1] = 1
-
-        return Gtrend
+        nregn = self.nregn
+        G = np.identity(nregn)
+        return G
 
     def _update_F(self, x: np.array = None):
         F = self.F
+        F[:, 0] = np.ravel(x)
         return F
 
-    def _build_P(self, G: np.array):
-        return G @ self.C @ G.T
+    def _build_P(self):
+        return self.G @ self.C @ self.G.T
 
     def _build_W(self, P: np.array):
         if self.estimate_W:
-            W = _build_W(mod=self, P=P)
+            W = _build_W_complete(mod=self, P=P)
         else:
             W = self.W
         return W

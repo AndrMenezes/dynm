@@ -49,7 +49,7 @@ class NullModel():
     def _build_G(self, x: float = None):
         return np.empty([0, 0])
 
-    def _build_h(self, G: np.array):
+    def _build_h(self):
         return np.empty([0, 0]).reshape(-1, 1)
 
     def _build_P(self, G: np.array = None):
