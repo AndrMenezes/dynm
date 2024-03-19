@@ -85,7 +85,7 @@ class TestDLM(unittest.TestCase):
             },
             "seasonal": {
                 "m0": np.array([0, 0, 0, 0]),
-                "C0": np.identity(4),
+                "C0": np.identity(4) * 9,
                 "seas_period": 12,
                 "seas_harm_components": [1, 2],
                 "discount": 1
@@ -111,7 +111,7 @@ class TestDLM(unittest.TestCase):
             },
             "seasonal": {
                 "m0": np.array([0, 0, 0, 0]),
-                "C0": np.identity(4),
+                "C0": np.identity(4) * 9,
                 "seas_period": 12,
                 "seas_harm_components": [1, 2],
                 "discount": 1
@@ -143,7 +143,7 @@ class TestDLM(unittest.TestCase):
             },
             "seasonal": {
                 "m0": np.array([0, 0, 0, 0]),
-                "C0": np.identity(4),
+                "C0": np.identity(4) * 9,
                 "seas_period": 12,
                 "seas_harm_components": [1, 2],
                 "discount": 1
@@ -177,7 +177,7 @@ class TestDLM(unittest.TestCase):
             },
             "seasonal": {
                 "m0": np.array([0, 0, 0, 0]),
-                "C0": np.identity(4),
+                "C0": np.identity(4) * 9,
                 "seas_period": 12,
                 "seas_harm_components": [1, 2],
                 "discount": 1
@@ -202,7 +202,7 @@ class TestDLM(unittest.TestCase):
             },
             "seasonal": {
                 "m0": np.array([0, 0, 0, 0]),
-                "C0": np.identity(4),
+                "C0": np.identity(4) * 9,
                 "seas_period": 12,
                 "seas_harm_components": [1, 2],
                 "discount": 1
@@ -227,7 +227,7 @@ class TestDLM(unittest.TestCase):
             },
             "seasonal": {
                 "m0": np.array([0, 0, 0, 0]),
-                "C0": np.identity(4),
+                "C0": np.identity(4) * 9,
                 "seas_period": 12,
                 "seas_harm_components": [1, 2],
                 "discount": 1
