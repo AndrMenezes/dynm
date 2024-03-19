@@ -143,13 +143,15 @@ def add_credible_interval_gamma(
 
 
 def create_mod_label_column(mod, t: int):
-    dlm_lb = list(np.repeat('dlm', len(mod.dlm.m)))
-    arm_lb = list(np.repeat('arm', len(mod.arm.m)))
-    tfm_lb = list(np.repeat(
-        ['tfm_' + str(i + 1) for i in range(mod.tfm.ntfm)],
-        2 * mod.tfm.lambda_order + mod.tfm.gamma_order))
+    dlm_model_idx = mod.dlm.model_index_dict
+    dnm_model_idx = mod.dnm.model_index_dict
 
-    mod_lb = t * (dlm_lb + arm_lb + tfm_lb)
+    dlm_lb = np.concatenate([np.repeat(k, len(dlm_model_idx.get(k)))
+                             for k in dlm_model_idx.keys()])
+    dnm_lb = np.concatenate([np.repeat(k, len(dnm_model_idx.get(k)))
+                             for k in dnm_model_idx.keys()])
+
+    mod_lb = t * list(np.concatenate([dlm_lb, dnm_lb]))
 
     return mod_lb
 
@@ -168,13 +170,15 @@ def _build_predictive_df(mod, dict_predict: dict, level: float):
 def _build_posterior_df(
         mod,
         dict_posterior: dict,
+        entry_m: str,
+        entry_v: str,
         t: int,
         level: float,
         smooth: bool = False):
     # Organize the posterior parameters
     df_posterior = tidy_parameters(
         dict_parameters=dict_posterior,
-        entry_m="a", entry_v="R",
+        entry_m=entry_m, entry_v=entry_v,
         names_parameters=mod.names_parameters)
 
     # Create model labels
@@ -186,7 +190,7 @@ def _build_posterior_df(
     else:
         t_index = np.arange(1, t+1)
 
-    df_posterior["t"] = np.repeat(t_index, mod.p)
+    df_posterior["t"] = np.repeat(t_index, mod.m.shape[0])
     df_posterior["t"] = df_posterior["t"].astype(int)
 
     # Round variance
@@ -210,7 +214,7 @@ def _build_variance_df(
         .assign(
             variance=lambda x: x.d / (x.n ** 2),
             parameter="V",
-            mod="gamma"
+            mod="observational_variance"
     )
 
     # Organize observational variance

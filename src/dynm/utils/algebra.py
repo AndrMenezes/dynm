@@ -2,10 +2,19 @@
 import numpy as np
 
 
-def _build_W(mod, P: np.array):
+def _build_W_diagonal(mod, P: np.array):
     p = P.shape[0]
     discount_matrix = np.ones([p, p])
-    np.fill_diagonal(discount_matrix, 1 / mod.discount_factors)
+    np.fill_diagonal(discount_matrix, 1 / mod.discount)
+
+    W = P * discount_matrix - P
+
+    return W
+
+
+def _build_W_complete(mod, P: np.array):
+    p = P.shape[0]
+    discount_matrix = np.ones([p, p]) / mod.discount
 
     W = P * discount_matrix - P
 
@@ -17,20 +26,6 @@ def _calc_predictive_mean_and_var(F: np.array, a: np.array,
     f = F.T @ a
     q = F.T @ R @ F + s
     return np.ravel(f), np.ravel(q)
-
-
-def _calc_aR(mod):
-    m = mod.m
-    C = mod.C
-    G = mod.G
-    discount_matrix = mod.discount_matrix
-
-    a = G @ m
-    P = G @ C @ G.T
-    W = _build_W(P=P, discount_matrix=discount_matrix)
-    R = P + W
-
-    return a, R
 
 
 def _build_Gnonlinear(m: np.array, order: int):

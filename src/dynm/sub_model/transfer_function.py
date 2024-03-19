@@ -1,8 +1,7 @@
 """Utils functions."""
 import numpy as np
 import copy
-from dynm.utils.algebra import _calc_predictive_mean_and_var
-from dynm.utils.algebra import _build_Gnonlinear, _build_W
+from dynm.utils.algebra import _build_Gnonlinear, _build_W_diagonal
 from scipy.linalg import block_diag
 
 
@@ -15,9 +14,8 @@ class TransferFunction():
                  gamma_order: int,
                  lambda_order: int,
                  ntfm: int,
-                 discount_factors: np.ndarray = None,
-                 W: np.ndarray = None,
-                 V: float = None):
+                 discount: np.ndarray = None,
+                 W: np.ndarray = None):
         """Define model.
 
         Define model with observation/system equations components \
@@ -39,16 +37,8 @@ class TransferFunction():
         self.m = m0.reshape(-1, 1)
         self.C = C0
 
-        if V is None:
-            self.n = 1
-            self.d = 1
-            self.s = 1
-            self.discount_factors = discount_factors
-        else:
-            self.s = V
-            self.estimate_V = False
+        self.discount = discount
 
-        self.discount_factors = discount_factors
         if W is None:
             self.estimate_W = True
         else:
@@ -72,26 +62,6 @@ class TransferFunction():
         # Build F and G
         self.F = self._build_F()
         self.G = self._build_G(x=np.zeros([ntfm, self.gamma_order]))
-
-    def forecast(self, k: int = 1):
-        """Forecast y at time (t+k).
-
-        Parameters
-
-        ----------
-        F : np.ndarray
-            Design matrix.
-        G : np.ndarray
-            State matrix.
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
-        """
-        f, q = _calc_predictive_mean_and_var(mod=self)
-        return np.ravel(f), np.ravel(q)
 
     def _build_F(self):
         F = np.array([])
@@ -131,9 +101,9 @@ class TransferFunction():
 
         return G
 
-    def _build_h(self, G: np.array):
+    def _build_h(self):
         ntfm = self.ntfm
-        G_ = copy.deepcopy(G)
+        G_ = copy.deepcopy(self.G)
 
         for n in range(ntfm):
             idx = np.ix_(self.index_dict.get(n).get('response'),
@@ -141,16 +111,16 @@ class TransferFunction():
             G_[idx] = G_[idx] * 0.0
 
         m = self.m.T
-        h = (G_ - G) @ m.T
+        h = (G_ - self.G) @ m.T
 
         return h
 
-    def _build_P(self, G: np.array):
-        return G @ self.C @ G.T
+    def _build_P(self):
+        return self.G @ self.C @ self.G.T
 
     def _build_W(self, P: np.array):
         if self.estimate_W:
-            W = _build_W(mod=self, P=P)
+            W = _build_W_diagonal(mod=self, P=P)
 
             for n in range(self.ntfm):
                 idx = np.ix_(self.index_dict.get(n).get('response')[1:],
