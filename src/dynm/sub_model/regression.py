@@ -54,7 +54,7 @@ class Regression():
 
     def _update_F(self, x: np.array = None):
         F = self.F
-        F[self.index_dict.get('reg'), 0] = np.ravel(x)
+        F[:, 0] = np.ravel(x)
         return F
 
     def _build_P(self):

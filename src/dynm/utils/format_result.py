@@ -214,7 +214,7 @@ def _build_variance_df(
         .assign(
             variance=lambda x: x.d / (x.n ** 2),
             parameter="V",
-            mod="gamma"
+            mod="observational_variance"
     )
 
     # Organize observational variance

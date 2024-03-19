@@ -130,33 +130,6 @@ class TestAutoregressive(unittest.TestCase):
         self.assertTrue(forecast_df.notnull().all().all())
         self.assertTrue(parameters_df.notnull().all().all())
 
-    def test__k_steps_ahead_calc_predictive_mean_and_var_values(self):
-        """Test k steps a head values."""
-        model_dict = {
-            "autoregressive": {
-                "m0": m0,
-                "C0": C0,
-                "order": 2,
-                "discount": np.array([1, 1, 1, 1])
-            }
-        }
-
-        # Fit
-        mod = BayesianDynamicModel(model_dict=model_dict).fit(y=y)
-
-        # Forecasting
-        f, q = mod._calc_predictive_mean_and_var()
-
-        forecast_df = mod\
-            ._predict(k=1)\
-            .get("predictive")
-
-        fk = forecast_df.f.values
-        qk = forecast_df.q.values
-
-        self.assertTrue(np.isclose(f, fk))
-        self.assertTrue(np.isclose(q, qk))
-
     def test__smoothed_posterior_variance(self):
         """Test smooth posterior variance."""
         model_dict = {

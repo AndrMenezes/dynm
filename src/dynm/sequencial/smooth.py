@@ -57,8 +57,8 @@ def _backward_smoother(mod, X: dict = {}, level: float = 0.05):
 
     # Perform smoothing
     for k in range(1, nobs):
-        Xk['regression'] = copy_X['regression'][nobs-k, :]
-        Xk['transfer_function'] = copy_X['transfer_function'][nobs-k, :, :]
+        Xk['regression'] = copy_X['regression'][nobs-k-1, :]
+        Xk['transfer_function'] = copy_X['transfer_function'][nobs-k-1, :, :]
 
         Fk = mod._build_F(x=Xk['regression'])
         Gk = G[nobs-k]

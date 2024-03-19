@@ -116,8 +116,8 @@ class BayesianDynamicModel():
         dlm_names_parameters = self.dlm.names_parameters
         dnm_names_parameters = self.dnm.names_parameters
 
-        names_parameters = dlm_names_parameters.extend(dnm_names_parameters)
-        self.names_parameters = names_parameters
+        dlm_names_parameters.extend(dnm_names_parameters)
+        self.names_parameters = dlm_names_parameters
 
     def _build_F(self, x: np.array = None):
         F_dlm = self.dlm._build_F(x=x)
@@ -297,8 +297,8 @@ class BayesianDynamicModel():
             X: dict = {},
             level: float = 0.05):
         copy_mod = copy(self)
-        copy_mod.ak = copy(self.m)
-        copy_mod.Rk = copy(self.C)
+        copy_mod.a = copy_mod.m
+        copy_mod.R = copy_mod.C
 
         dict_state_params = {'a': [], 'R': []}
         dict_kstep_forecast = {'t': [], 'f': [], 'q': []}
@@ -308,10 +308,10 @@ class BayesianDynamicModel():
 
         # K steps-a-head forecast
         for t in range(k):
+            # Prior distribution moments
             Xt['regression'] = copy_X['regression'][t, :]
             Xt['transfer_function'] = copy_X['transfer_function'][t, :, :]
 
-            # Predictive distribution moments
             copy_mod.F = copy_mod._build_F(x=Xt['regression'])
             copy_mod.G = copy_mod._build_G(x=Xt['transfer_function'])
 
@@ -321,20 +321,18 @@ class BayesianDynamicModel():
             copy_mod.W = copy_mod._build_W()
             copy_mod.h = copy_mod._build_h()
 
-            copy_mod.ak = copy_mod.G @ copy_mod.ak + copy_mod.h
-            copy_mod.Rk = copy_mod.G @ copy_mod.Rk @ copy_mod.G.T + copy_mod.W
+            copy_mod.a = copy_mod.G @ copy_mod.a + copy_mod.h
+            copy_mod.R = copy_mod.G @ copy_mod.R @ copy_mod.G.T + copy_mod.W
 
-            # Predictive
+            # Predictive Distribution moments
             copy_mod.f, copy_mod.q = copy_mod._calc_predictive_mean_and_var()
 
-            # Append results
             dict_kstep_forecast['t'].append(t+1)
             dict_kstep_forecast['f'].append(copy_mod.f)
             dict_kstep_forecast['q'].append(copy_mod.q)
 
-            # Dict state params
-            dict_state_params['a'].append(copy_mod.ak)
-            dict_state_params['R'].append(copy_mod.Rk)
+            dict_state_params['a'].append(copy_mod.a)
+            dict_state_params['R'].append(copy_mod.R)
 
         del copy_mod
 

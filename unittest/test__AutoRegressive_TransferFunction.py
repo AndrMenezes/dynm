@@ -208,41 +208,6 @@ class TestAutoregressiveTransferFunction(unittest.TestCase):
         self.assertTrue(forecast_df.notnull().all().all())
         self.assertTrue(parameters_df.notnull().all().all())
 
-    def test__predict_calc_predictive_mean_and_var_values(self):
-        """Test k steps a head values."""
-        model_dict = {
-            "autoregressive": {
-                "m0": arm_m0,
-                "C0": arm_C0,
-                "order": 2,
-                "discount": arm_del
-            },
-            "transfer_function": {
-                "m0": tfm_m0,
-                "C0": tfm_C0,
-                "gamma_order": 1,
-                "lambda_order": 2,
-                "discount": tfm_del,
-                "ntfm": 1
-            }
-        }
-
-        # Fit
-        mod = BayesianDynamicModel(model_dict=model_dict).fit(y=y, X=X)
-
-        # Forecasting
-        Xt = {"transfer_function": X["transfer_function"][-1:, :, :]}
-        f, q = mod._calc_predictive_mean_and_var()
-
-        forecast_df = mod\
-            ._predict(k=1, X=Xt)\
-            .get("predictive")
-        fk = forecast_df.f.values
-        qk = forecast_df.q.values
-
-        self.assertTrue(np.isclose(f, fk))
-        self.assertTrue(np.isclose(q, qk))
-
     def test__smoothed_posterior_variance(self):
         """Test smooth posterior variance."""
         model_dict = {

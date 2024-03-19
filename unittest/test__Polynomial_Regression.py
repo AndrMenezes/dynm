@@ -2,18 +2,19 @@
 import numpy as np
 import unittest
 from dynm.dynamic_model import BayesianDynamicModel
-from scipy.linalg import block_diag
 
 # Simulating the data
 nobs = 80
 sd_y = 0.02
 
 y = np.zeros(nobs)
-theta = np.zeros([nobs, 5])
+x = np.zeros([nobs, 2])
 
 # Initial information
 y[0] = 10
-theta[0, :] = np.array([10, 1, .25, 1, .25])
+beta0 = 10
+beta1 = 2
+beta2 = 3
 
 # First observation
 np.random.seed(1111)
@@ -21,24 +22,17 @@ for t in range(1, nobs):
     # Random errors
     nu = np.random.normal(loc=0, scale=sd_y, size=1)
 
-    # Regression vector
-    F = np.array([1, 1, 0, 1, 0]).T
-
-    # Evolution
-    Gtrend = np.array([[1]])
-    Gseas = np.array([[0.8660254,  0.5,  0.,  0.],
-                      [-0.5,  0.8660254,  0.,  0.],
-                      [0.,  0.,  0.5,  0.8660254],
-                      [0.,  0., -0.8660254,  0.5]])
-    G = block_diag(Gtrend, Gseas)
-
-    theta[t] = G @ theta[t-1]
+    # Input
+    x[t, 0] = np.random.normal(loc=0, scale=1, size=1)
+    x[t, 1] = np.random.normal(loc=0, scale=1, size=1)
 
     # Observation
-    y[t] = F.T @ theta[t] + nu
+    y[t] = beta0 + beta1 * x[t, 0] + beta2 * x[t, 1] + nu
+
+X = {"regression": x}
 
 
-class TestPolynomialandSeasonal(unittest.TestCase):
+class TestPolynomialandRegression(unittest.TestCase):
     """Tests BayesianDynamicModel results for Dynamic Linear Model."""
 
     def test__estimates_known_W_and_V(self):
@@ -50,17 +44,17 @@ class TestPolynomialandSeasonal(unittest.TestCase):
                 "ntrend": 1,
                 "W": np.array([[0]]),
             },
-            "seasonal": {
-                "m0": np.array([0, 0, 0, 0]),
-                "C0": np.identity(4) * 9,
-                "seas_period": 12,
-                "seas_harm_components": [1, 2],
-                "W": np.identity(4) * 0
+            "regression": {
+                "m0": np.array([0, 0]),
+                "C0": np.identity(2) * 9,
+                "nregn": 2,
+                "W": np.identity(2) * 0
             }
         }
 
         # Fit
-        mod = BayesianDynamicModel(model_dict=model_dict, V=sd_y**2).fit(y=y)
+        mod = BayesianDynamicModel(model_dict=model_dict, V=sd_y**2)\
+            .fit(y=y, X=X)
         forecast_df = mod.dict_filter.get("predictive")
 
         mape = np.mean(np.abs(forecast_df.f - forecast_df.y) / forecast_df.y)
@@ -74,19 +68,19 @@ class TestPolynomialandSeasonal(unittest.TestCase):
                 "m0": np.array([10]),
                 "C0": np.array([[9]]),
                 "ntrend": 1,
-                "discount": 1
+                "discount": 1,
             },
-            "seasonal": {
-                "m0": np.array([0, 0, 0, 0]),
-                "C0": np.identity(4) * 9,
-                "seas_period": 12,
-                "seas_harm_components": [1, 2],
+            "regression": {
+                "m0": np.array([0, 0]),
+                "C0": np.identity(2) * 9,
+                "nregn": 2,
                 "discount": 1
             }
         }
 
         # Fit
-        mod = BayesianDynamicModel(model_dict=model_dict, V=sd_y**2).fit(y=y)
+        mod = BayesianDynamicModel(model_dict=model_dict, V=sd_y**2)\
+            .fit(y=y, X=X)
         forecast_df = mod.dict_filter.get("predictive")
 
         mape = np.mean(np.abs(forecast_df.f - forecast_df.y) / forecast_df.y)
@@ -100,13 +94,12 @@ class TestPolynomialandSeasonal(unittest.TestCase):
                 "m0": np.array([10]),
                 "C0": np.array([[9]]),
                 "ntrend": 1,
-                "discount": 1
+                "discount": 1,
             },
-            "seasonal": {
-                "m0": np.array([0, 0, 0, 0]),
-                "C0": np.identity(4) * 9,
-                "seas_period": 12,
-                "seas_harm_components": [1, 2],
+            "regression": {
+                "m0": np.array([0, 0]),
+                "C0": np.identity(2) * 9,
+                "nregn": 2,
                 "discount": 1
             }
         }
@@ -115,11 +108,14 @@ class TestPolynomialandSeasonal(unittest.TestCase):
         tr__y = y[:60]
         te__y = y[60:]
 
+        tr__X = {"regression": x[:60, :]}
+        te__X = {"regression": x[60:, :]}
+
         # Fit
-        mod = BayesianDynamicModel(model_dict=model_dict).fit(y=tr__y)
+        mod = BayesianDynamicModel(model_dict=model_dict).fit(y=tr__y, X=tr__X)
 
         # Forecasting
-        forecast_results = mod._predict(k=20)
+        forecast_results = mod._predict(k=20, X=te__X)
         forecast_df = forecast_results.get("predictive")
         mape = np.mean(np.abs(forecast_df.f - te__y) / te__y)
 
@@ -132,19 +128,19 @@ class TestPolynomialandSeasonal(unittest.TestCase):
                 "m0": np.array([10]),
                 "C0": np.array([[9]]),
                 "ntrend": 1,
-                "discount": 1
+                "discount": 1,
             },
-            "seasonal": {
-                "m0": np.array([0, 0, 0, 0]),
-                "C0": np.identity(4) * 9,
-                "seas_period": 12,
-                "seas_harm_components": [1, 2],
+            "regression": {
+                "m0": np.array([0, 0]),
+                "C0": np.identity(2) * 9,
+                "nregn": 2,
                 "discount": 1
             }
         }
 
         # Fit
-        mod = BayesianDynamicModel(model_dict=model_dict).fit(y=y, smooth=True)
+        mod = BayesianDynamicModel(model_dict=model_dict)\
+            .fit(y=y, X=X, smooth=True)
         smooth_posterior = mod.dict_smooth.get("posterior")
 
         min_var = smooth_posterior.variance.min()
@@ -157,19 +153,19 @@ class TestPolynomialandSeasonal(unittest.TestCase):
                 "m0": np.array([10]),
                 "C0": np.array([[9]]),
                 "ntrend": 1,
-                "discount": 1
+                "discount": 1,
             },
-            "seasonal": {
-                "m0": np.array([0, 0, 0, 0]),
-                "C0": np.identity(4) * 9,
-                "seas_period": 12,
-                "seas_harm_components": [1, 2],
+            "regression": {
+                "m0": np.array([0, 0]),
+                "C0": np.identity(2) * 9,
+                "nregn": 2,
                 "discount": 1
             }
         }
 
         # Fit
-        mod = BayesianDynamicModel(model_dict=model_dict).fit(y=y, smooth=True)
+        mod = BayesianDynamicModel(model_dict=model_dict)\
+            .fit(y=y, X=X, smooth=True)
         smooth_predictive = mod.dict_smooth.get("predictive")
 
         min_var = smooth_predictive.q.min()
@@ -182,19 +178,19 @@ class TestPolynomialandSeasonal(unittest.TestCase):
                 "m0": np.array([10]),
                 "C0": np.array([[9]]),
                 "ntrend": 1,
-                "discount": 1
+                "discount": 1,
             },
-            "seasonal": {
-                "m0": np.array([0, 0, 0, 0]),
-                "C0": np.identity(4) * 9,
-                "seas_period": 12,
-                "seas_harm_components": [1, 2],
+            "regression": {
+                "m0": np.array([0, 0]),
+                "C0": np.identity(2) * 9,
+                "nregn": 2,
                 "discount": 1
             }
         }
 
         # Fit
-        mod = BayesianDynamicModel(model_dict=model_dict).fit(y=y, smooth=True)
+        mod = BayesianDynamicModel(model_dict=model_dict)\
+            .fit(y=y, X=X, smooth=True)
 
         filter_predictive = mod\
             .dict_filter.get("predictive")\
