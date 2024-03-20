@@ -30,34 +30,46 @@ class DynamicNonLinearModel():
             transfer_function:
                 Obligatory keys: {'m0', 'C0', 'ntfm',
                                   'lambda_order', 'gamma_order'}.
+
                 Optional keys (choose one): {'W', 'discount'}.
 
-                - 'm0' (np.ndarray): Prior mean vector for the transfer \
+                - 'm0' (np.ndarray): Prior mean vector for the transfer
                    function model components.
-                - 'C0' (np.ndarray): Prior covariance matrix for the \
+
+                - 'C0' (np.ndarray): Prior covariance matrix for the
                    transfer function model components.
+
                 - 'ntfm' (int): Number of transfer function blocks.
-                - 'lambda_order' (int): Order of the autoregressive component \
+
+                - 'lambda_order' (int): Order of the autoregressive component
                    of the transfer function.
-                - 'gamma_order' (int): Order of the moving average component \
+
+                - 'gamma_order' (int): Order of the moving average component
                    of the transfer function.
-                - 'W' (np.ndarray, optional): Process noise covariance matrix.\
+
+                - 'W' (np.ndarray, optional): Process noise covariance matrix.
                    Choose either 'W' or 'discount'.
-                - 'discount' (float, optional): Discount factor. \
+
+                - 'discount' (float, optional): Discount factor.
                    Choose either 'W' or 'discount'.
 
             autoregressive:
                 Obligatory keys: {'m0', 'C0', 'order'}.
+
                 Optional keys (choose one): {'W', 'discount'}.
 
-                - 'm0' (np.ndarray): Prior mean vector for the \
+                - 'm0' (np.ndarray): Prior mean vector for the
                    autoregressive model components.
-                - 'C0' (np.ndarray): Prior covariance matrix for the \
+
+                - 'C0' (np.ndarray): Prior covariance matrix for the
                    autoregressive model components.
+
                 - 'order' (int): Order of the autoregressive model.
-                - 'W' (np.ndarray, optional): Process noise covariance matrix.\
+
+                - 'W' (np.ndarray, optional): Process noise covariance matrix.
                    Choose either 'W' or 'discount'.
-                - 'discount' (float, optional): Discount factor. Choose either\
+
+                - 'discount' (float, optional): Discount factor. Choose either
                    'W' or 'discount'.
 
         """

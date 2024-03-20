@@ -33,17 +33,21 @@ class DynamicLinearModel():
 
                 Optional keys (choose one): {'W', 'discount'}.
 
-                - 'm0' (np.ndarray): Prior mean vector for the \
+                - 'm0' (np.ndarray): Prior mean vector for the
                    polynomial model components.
-                - 'C0' (np.ndarray): Prior covariance matrix for \
+
+                - 'C0' (np.ndarray): Prior covariance matrix for
                    the polynomial model components.
-                - 'ntrend' (int): Number of trend components in the \
+
+                - 'ntrend' (int): Number of trend components in the
                    polynomial model.
-                - 'W' (np.ndarray, optional): Process noise covariance matrix.\
-                   If 'W' is unkown it will be estimated \
+
+                - 'W' (np.ndarray, optional): Process noise covariance matrix.
+                   If 'W' is unkown it will be estimated
                    using discount factor.
-                - 'discount' (float, optional): Discount factor \
-                   betwen 0 and 1. If 'W' is unkown it will be estimated \
+
+                - 'discount' (float, optional): Discount factor
+                   betwen 0 and 1. If 'W' is unkown it will be estimated
                    using discount factor.
 
             regression:
@@ -51,32 +55,42 @@ class DynamicLinearModel():
 
                 Optional keys (choose one): {'W', 'discount'}.
 
-                - 'm0' (np.ndarray): Prior mean vector for the regression \
+                - 'm0' (np.ndarray): Prior mean vector for the regression
                    model components.
-                - 'C0' (np.ndarray): Prior covariance matrix for the \
+
+                - 'C0' (np.ndarray): Prior covariance matrix for the
                    regression model components.
-                - 'nregn' (int): Number of regression components in the \
+
+                - 'nregn' (int): Number of regression components in the
                    regression model.
-                - 'W' (np.ndarray, optional): Process noise covariance matrix.\
+
+                - 'W' (np.ndarray, optional): Process noise covariance matrix.
                    Choose either 'W' or 'discount'.
-                - 'discount' (float, optional): Discount factor. \
+
+                - 'discount' (float, optional): Discount factor.
                    Choose either 'W' or 'discount'.
 
             seasonal:
                 Obligatory keys: {'m0', 'C0',
                                   'seas_period', 'seas_harm_components'}.
+
                 Optional keys (choose one): {'W', 'discount'}.
 
-                - 'm0' (np.ndarray): Prior mean vector for the seasonal \
+                - 'm0' (np.ndarray): Prior mean vector for the seasonal
                    model components.
-                - 'C0' (np.ndarray): Prior covariance matrix for the \
+
+                - 'C0' (np.ndarray): Prior covariance matrix for the
                    seasonal model components.
+
                 - 'seas_period' (float): Period of the seasonal pattern.
-                - 'seas_harm_components' (list): List of harmonic components \
+
+                - 'seas_harm_components' (list): List of harmonic components
                    for the seasonal pattern.
-                - 'W' (np.ndarray, optional): Process noise covariance matrix.\
+
+                - 'W' (np.ndarray, optional): Process noise covariance matrix.
                    Choose either 'W' or 'discount'.
-                - 'discount' (float, optional): Discount factor. Choose \
+
+                - 'discount' (float, optional): Discount factor. Choose
                    either 'W' or 'discount'.
 
         """
