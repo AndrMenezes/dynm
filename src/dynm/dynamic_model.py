@@ -14,7 +14,7 @@ from dynm.utils.summary import get_predictive_log_likelihood
 
 
 class BayesianDynamicModel():
-    """Class for fitting, forecast and update dynamic linear models."""
+    """Class for fitting, forecast and update bayesian dynamic models."""
 
     def __init__(self, model_dict: dict, V: float = None, W: dict = None):
         """Define model.
@@ -24,12 +24,97 @@ class BayesianDynamicModel():
 
         Parameters
         ----------
-        m0 : np.ndarray
-            prior mean for state space components.
-        C0 : np.ndarray
-            prior covariance for state space components.
-        delta : float
-            discount factor.
+        model_dict : dict
+            Dictionary containing prior moments and other model definition \
+            parameters for each structural block: polynomial, regression, \
+            seasonal, transfer function and autoregressive.
+
+            Each structural block should be identified by its label and \
+            should have the following parameters:
+
+            polynomial:
+                Obrigatory keys: {'m0', 'C0', 'order'}.
+
+                Optional keys (choose one): {'W', 'discount'}.
+
+                - 'm0' (np.ndarray): Prior mean vector for the \
+                   polynomial model components.
+                - 'C0' (np.ndarray): Prior covariance matrix for \
+                   the polynomial model components.
+                - 'ntrend' (int): Number of trend components in the \
+                   polynomial model.
+                - 'W' (np.ndarray, optional): Process noise covariance matrix.\
+                   If 'W' is unkown it will be estimated \
+                   using discount factor.
+                - 'discount' (float, optional): Discount factor \
+                   betwen 0 and 1. If 'W' is unkown it will be estimated \
+                   using discount factor.
+
+            regression:
+                Obrigatory keys: {'m0', 'C0', 'nregn'}.
+
+                Optional keys (choose one): {'W', 'discount'}.
+
+                - 'm0' (np.ndarray): Prior mean vector for the regression \
+                   model components.
+                - 'C0' (np.ndarray): Prior covariance matrix for the \
+                   regression model components.
+                - 'nregn' (int): Number of regression components in the \
+                   regression model.
+                - 'W' (np.ndarray, optional): Process noise covariance matrix.\
+                   Choose either 'W' or 'discount'.
+                - 'discount' (float, optional): Discount factor. \
+                   Choose either 'W' or 'discount'.
+
+            seasonal:
+                Obligatory keys: {'m0', 'C0',
+                                  'seas_period', 'seas_harm_components'}.
+                Optional keys (choose one): {'W', 'discount'}.
+
+                - 'm0' (np.ndarray): Prior mean vector for the seasonal \
+                   model components.
+                - 'C0' (np.ndarray): Prior covariance matrix for the \
+                   seasonal model components.
+                - 'seas_period' (float): Period of the seasonal pattern.
+                - 'seas_harm_components' (list): List of harmonic components \
+                   for the seasonal pattern.
+                - 'W' (np.ndarray, optional): Process noise covariance matrix.\
+                   Choose either 'W' or 'discount'.
+                - 'discount' (float, optional): Discount factor. Choose \
+                   either 'W' or 'discount'.
+
+            transfer_function:
+                Obligatory keys: {'m0', 'C0', 'ntfm',
+                                  'lambda_order', 'gamma_order'}.
+                Optional keys (choose one): {'W', 'discount'}.
+
+                - 'm0' (np.ndarray): Prior mean vector for the transfer \
+                   function model components.
+                - 'C0' (np.ndarray): Prior covariance matrix for the \
+                   transfer function model components.
+                - 'ntfm' (int): Number of transfer function blocks.
+                - 'lambda_order' (int): Order of the autoregressive component \
+                   of the transfer function.
+                - 'gamma_order' (int): Order of the moving average component \
+                   of the transfer function.
+                - 'W' (np.ndarray, optional): Process noise covariance matrix.\
+                   Choose either 'W' or 'discount'.
+                - 'discount' (float, optional): Discount factor. \
+                   Choose either 'W' or 'discount'.
+
+            autoregressive:
+                Obligatory keys: {'m0', 'C0', 'order'}.
+                Optional keys (choose one): {'W', 'discount'}.
+
+                - 'm0' (np.ndarray): Prior mean vector for the \
+                   autoregressive model components.
+                - 'C0' (np.ndarray): Prior covariance matrix for the \
+                   autoregressive model components.
+                - 'order' (int): Order of the autoregressive model.
+                - 'W' (np.ndarray, optional): Process noise covariance matrix.\
+                   Choose either 'W' or 'discount'.
+                - 'discount' (float, optional): Discount factor. Choose either\
+                   'W' or 'discount'.
 
         """
         self.model_dict = copy(model_dict)
@@ -52,7 +137,13 @@ class BayesianDynamicModel():
         self._set_parameters_name()
 
     def _set_superposition_blocks(self):
-        dlm = DynamicLinearModel(model_dict=self.model_dict, V=self.V)
+        """
+        Set the superposition blocks.
+
+        Set the superposition blocks for both DynamicLinearModel (DLM) and\
+        DynamicNonLinearModel (DNM).
+        """
+        dlm = DynamicLinearModel(model_dict=self.model_dict)
         dnm = DynamicNonLinearModel(model_dict=self.model_dict, V=self.V)
 
         self.dlm = dlm
@@ -77,20 +168,50 @@ class BayesianDynamicModel():
             self.v = self.s
 
     def _concatenate_regression_vector(self):
+        """
+        Concatenate regression vectors.
+
+        Concatenates the regression vectors from DLM and DNM into a \
+        single vector 'F'.
+        """
         self.F = np.vstack((self.dlm.F, self.dnm.F))
 
     def _concatenate_evolution_matrix(self):
+        """
+        Concatenate equation evolution matrices.
+
+        Concatenates the evolution matrices from DLM and DNM into a \
+        single matrix 'G'.
+        """
         self.G = block_diag(self.dlm.G, self.dnm.G)
 
     def _concatenate_prior_mean(self):
+        """
+        Concatenate prior mean vectors.
+
+        Concatenates the prior mean vectors from DLM and DNM into a \
+        single vector 'a'.
+        """
         self.a = np.vstack((self.dlm.m, self.dnm.m))
         self.m = np.vstack((self.dlm.m, self.dnm.m))
 
     def _concatenate_prior_covariance_matrix(self):
+        """
+        Concatenate prior covariance matrices.
+
+        Concatenates the prior covariance matrices from DLM and DNM into a \
+        single matrix 'R'.
+        """
         self.R = block_diag(self.dlm.C, self.dnm.C)
         self.C = block_diag(self.dlm.C, self.dnm.C)
 
     def _set_superposition_block_index(self):
+        """
+        Set superposition block indices.
+
+        Sets the indices for the superposition blocks in the concatenated \
+        vectors/matrices.
+        """
         nparams_dlm = len(self.dlm.m)
         nparams_dnm = len(self.dnm.m)
 
@@ -113,6 +234,12 @@ class BayesianDynamicModel():
         }
 
     def _set_parameters_name(self):
+        """
+        Set parameters names.
+
+        Concatenates the parameter names from DLM and DNM into a single list \
+        'names_parameters'.
+        """
         dlm_names_parameters = self.dlm.names_parameters
         dnm_names_parameters = self.dnm.names_parameters
 
@@ -120,6 +247,13 @@ class BayesianDynamicModel():
         self.names_parameters = dlm_names_parameters
 
     def _build_F(self, x: np.array = None):
+        """
+        Build the regression vector.
+
+        Constructs the regression vector 'F' based on the provided regressor \
+        'x' (only if regression was set) and \
+        the models DLM and DNM.
+        """
         F_dlm = self.dlm._build_F(x=x)
         F_dnm = self.dnm.F
 
@@ -128,6 +262,13 @@ class BayesianDynamicModel():
         return F
 
     def _build_G(self, x: np.array = None):
+        """
+        Build the state evolution matrix.
+
+        Constructs the state evolution matrix 'G' based on the \
+        provided transfer function input 'x' \
+        (only if transfer function was set) and the models DLM and DNM.
+        """
         G_dlm = self.dlm.G
         G_dnm = self.dnm._build_G(x=x)
 
@@ -136,6 +277,12 @@ class BayesianDynamicModel():
         return G
 
     def _build_W(self):
+        """
+        Build the process noise covariance matrix.
+
+        Constructs the process noise covariance matrix 'W' based on the \
+        models DLM and DNM.
+        """
         W_dlm = self.dlm._build_W()
         W_dnm = self.dnm._build_W()
 
@@ -152,6 +299,12 @@ class BayesianDynamicModel():
         return h
 
     def _calc_prior_mean_and_var(self):
+        """
+        Calculate prior mean and variance.
+
+        Calculates the prior mean vector 'a' and covariance matrix 'R' \
+        using the current state and process parameters.
+        """
         a = self.G @ self.m + self.h
         P = self.G @ self.C @ self.G.T
         R = (P + self.W)
@@ -159,11 +312,23 @@ class BayesianDynamicModel():
         return a, R
 
     def _calc_predictive_mean_and_var(self):
+        """
+        Calculate predictive mean and variance.
+
+        Calculates the predictive mean 'f' and variance 'q' based on the \
+        current state and process parameters.
+        """
         f = np.ravel(self.F.T @ self.a)[0]
         q = np.ravel(self.F.T @ self.R @ self.F + self.v)[0]
         return f, q
 
     def _update(self, y: float, X: dict):
+        """
+        Update the model with new observations.
+
+        Updates the model state and parameters based on the new observation\
+        'y' and input variables 'X'.
+        """
         self.t += 1
 
         self.F = self._build_F(x=X.get('regression'))
@@ -197,6 +362,12 @@ class BayesianDynamicModel():
             self._update_superposition_block_moments()
 
     def _estimate_observational_variance(self):
+        """
+        Estimate the observational variance.
+
+        Estimates the observational variance 's' based on the \
+        model's parameters.
+        """
         if self.estimate_V:
             self.r = (self.n + self.e**2 / self.q) / (self.n + 1)
             self.n = self.n + 1
@@ -206,12 +377,24 @@ class BayesianDynamicModel():
             self.r = 1
 
     def _kalman_filter_update(self):
+        """
+        Kalman filter update.
+
+        Updates the space state parameters posterior moments \
+        using Kalman filter.
+        """
         self.a = self.a
         self.R = self.R
         self.m = self.a + self.A * self.e
         self.C = self.r * (self.R - self.q * self.A @ self.A.T)
 
     def _update_superposition_block_F(self):
+        """
+        Update the superposition block regression vectors.
+
+        Updates the regression vectors for DLM and DNM based on the \
+        concatenated observation matrix 'F'.
+        """
         idx_dlm = self.model_index_dict.get('dlm')
         idx_dnm = self.model_index_dict.get('dnm')
 
@@ -222,6 +405,12 @@ class BayesianDynamicModel():
         self.dnm._update_submodels_F()
 
     def _update_superposition_block_G(self):
+        """
+        Update the superposition block evolution matrices.
+
+        Updates the evolution matrices for DLM and DNM based on the \
+        concatenated evolution matrix 'G'.
+        """
         grid_dlm_x, grid_dlm_y = self.grid_index_dict.get('dlm')
         grid_dnm_x, grid_dnm_y = self.grid_index_dict.get('dnm')
 
@@ -232,6 +421,13 @@ class BayesianDynamicModel():
         self.dnm._update_submodels_G()
 
     def _update_superposition_block_moments(self):
+        """
+        Update the superposition block moments.
+
+        Updates the posterior mean vectors and covariance matrices for \
+        DLM and DNM based on the concatenated mean vector 'm' and \
+        covariance matrix 'C'.
+        """
         idx_dlm = self.model_index_dict.get('dlm')
         idx_dnm = self.model_index_dict.get('dnm')
 
@@ -261,20 +457,11 @@ class BayesianDynamicModel():
             X: dict = {},
             level: float = 0.05,
             smooth: bool = False):
-        """Short summary.
+        """
+        Fit the model to the data.
 
-        Parameters
-        ----------
-        y : np.ndarray
-            Description of parameter `y`.
-        x : np.ndarray
-            Description of parameter `x`.
-
-        Returns
-        -------
-        type
-            Description of returned object.
-
+        Fits the model to the provided data 'y' with optional regressors 'X' \
+        and returns the fitted model object.
         """
         # Fit
         foward_dict = _foward_filter(mod=self, y=y, X=X, level=level)
@@ -291,11 +478,18 @@ class BayesianDynamicModel():
 
         return self
 
-    def _predict(
+    def predict(
             self,
             k: int,
             X: dict = {},
             level: float = 0.05):
+        """
+        Perform k-step ahead prediction.
+
+        Performs k-step ahead prediction using the fitted model \
+        and optional regressors 'X' and returns the predicted values and \
+        confidence intervals.
+        """
         copy_mod = copy(self)
         copy_mod.a = copy_mod.m
         copy_mod.R = copy_mod.C
@@ -355,6 +549,12 @@ class BayesianDynamicModel():
                         'parameters': df_predict_aR}
         return dict_results
 
-    def _summary(self):
+    def summary(self):
+        """
+        Generate a summary of the model.
+
+        Generates a summary of the model including model parameters, \
+        state estimates, and predictive performance.
+        """
         str_summary = summary(mod=self)
         return str_summary
