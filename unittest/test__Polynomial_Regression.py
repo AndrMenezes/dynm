@@ -207,3 +207,23 @@ class TestPolynomialandRegression(unittest.TestCase):
         mse2 = np.mean((fk-y)**2)
 
         self.assertTrue(mse2/mse1 <= 1.0)
+
+    def test__invalid_model_dict(self):
+        """Test incorrect model dict."""
+        model_dict = {
+            "polynomial": {
+                "m0": np.array([10]),
+                "C0": np.array([[9]]),
+                "discount": 1,
+            },
+            "regression": {
+                "m0": np.array([0, 0]),
+                "C0": np.identity(2) * 9,
+                "nregn": 2,
+                "discount": 1
+            }
+        }
+
+        error_message = "Missing elements in polynomial model:{'W', 'ntrend'}"
+        with self.assertRaisesRegex(ValueError, error_message):
+            BayesianDynamicModel(model_dict=model_dict)
