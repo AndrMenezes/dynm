@@ -119,7 +119,7 @@ class TestPolynomialandSeasonal(unittest.TestCase):
         mod = BayesianDynamicModel(model_dict=model_dict).fit(y=tr__y)
 
         # Forecasting
-        forecast_results = mod._predict(k=20)
+        forecast_results = mod.predict(k=20)
         forecast_df = forecast_results.get("predictive")
         mape = np.mean(np.abs(forecast_df.f - te__y) / te__y)
 
@@ -211,3 +211,81 @@ class TestPolynomialandSeasonal(unittest.TestCase):
         mse2 = np.mean((fk-y)**2)
 
         self.assertTrue(mse2/mse1 <= 1.0)
+
+    def test__invalid_model_dict_missing_keys(self):
+        """Test incorrect model dict missing arguments."""
+        model_dict = {
+            "polynomial": {
+                "m0": np.array([10]),
+                "C0": np.array([[9]]),
+                "ntrend": 1,
+                "discount": 1,
+            },
+            "seasonal": {
+                "m0": np.array([0, 0, 0, 0]),
+                "C0": np.identity(4) * 9,
+            }
+        }
+
+        missing_keys = ['W', 'discount', 'seas_harm_components', 'seas_period']
+        error_message = ("Missing elements in seasonal model: " +
+                         str(missing_keys))
+
+        with self.assertRaises(ValueError) as context:
+            BayesianDynamicModel(model_dict=model_dict)
+
+        actual_error_message = str(context.exception)
+        self.assertEqual(actual_error_message.strip(), error_message.strip())
+
+    def test__invalid_model_dict_discount_shape(self):
+        """Test discount shape in seasonal model."""
+        model_dict = {
+            "polynomial": {
+                "m0": np.array([10]),
+                "C0": np.array([[9]]),
+                "ntrend": 1,
+                "discount": 1
+            },
+            "seasonal": {
+                "m0": np.array([0, 0, 0, 0]),
+                "C0": np.identity(4) * 9,
+                "seas_period": 12,
+                "seas_harm_components": [1, 2],
+                "discount": np.array([1, 2])
+            }
+        }
+
+        error_message = "Discount for seasonal model is not a scalar"
+
+        with self.assertRaises(ValueError) as context:
+            BayesianDynamicModel(model_dict=model_dict)
+
+        actual_error_message = str(context.exception)
+        self.assertEqual(actual_error_message.strip(), error_message.strip())
+
+    def test__invalid_model_dict_discount_values(self):
+        """Test discount values in seasonal model."""
+        model_dict = {
+            "polynomial": {
+                "m0": np.array([10]),
+                "C0": np.array([[9]]),
+                "ntrend": 1,
+                "discount": 1
+            },
+            "seasonal": {
+                "m0": np.array([0, 0, 0, 0]),
+                "C0": np.identity(4) * 9,
+                "seas_period": 12,
+                "seas_harm_components": [1, 2],
+                "discount": 2
+            }
+        }
+
+        error_message = ("Discount for seasonal model " +
+                         "is not in [0,1] interval")
+
+        with self.assertRaises(ValueError) as context:
+            BayesianDynamicModel(model_dict=model_dict)
+
+        actual_error_message = str(context.exception)
+        self.assertEqual(actual_error_message.strip(), error_message.strip())

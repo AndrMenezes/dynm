@@ -64,10 +64,10 @@ def _foward_filter(mod,
         dict_observation_var['n'].append(np.ravel(mod.n)[0])
         dict_observation_var['mean'].append(np.ravel(mod.s)[0])
 
+    # Get posterior and predictive dataframes
     df_predictive = _build_predictive_df(
         mod=mod, dict_predict=dict_1step_forecast, level=level)
 
-    # Build posterior data frames
     df_posterior = _build_posterior_df(
         mod=mod,
         dict_posterior=dict_state_params,

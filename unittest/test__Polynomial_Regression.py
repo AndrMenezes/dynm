@@ -115,7 +115,7 @@ class TestPolynomialandRegression(unittest.TestCase):
         mod = BayesianDynamicModel(model_dict=model_dict).fit(y=tr__y, X=tr__X)
 
         # Forecasting
-        forecast_results = mod._predict(k=20, X=te__X)
+        forecast_results = mod.predict(k=20, X=te__X)
         forecast_df = forecast_results.get("predictive")
         mape = np.mean(np.abs(forecast_df.f - te__y) / te__y)
 
@@ -207,3 +207,170 @@ class TestPolynomialandRegression(unittest.TestCase):
         mse2 = np.mean((fk-y)**2)
 
         self.assertTrue(mse2/mse1 <= 1.0)
+
+    def test__invalid_model_dict_ntrend_missing(self):
+        """Test incorrect model dict missing ntrend argument."""
+        model_dict = {
+            "polynomial": {
+                "m0": np.array([10]),
+                "C0": np.array([[9]]),
+                "discount": 1,
+            }
+        }
+
+        missing_keys = ['ntrend']
+        error_message = ("Missing elements in polynomial model: " +
+                         str(missing_keys))
+
+        with self.assertRaises(ValueError) as context:
+            BayesianDynamicModel(model_dict=model_dict)
+
+        actual_error_message = str(context.exception)
+        self.assertEqual(actual_error_message.strip(), error_message.strip())
+
+    def test__invalid_model_dict_ntrend_discount_W_missing(self):
+        """Test incorrect model dict missing ntrend, discount, W arguments."""
+        model_dict = {
+            "polynomial": {
+                "m0": np.array([10]),
+                "C0": np.array([[9]]),
+            }
+        }
+
+        missing_keys = ['W', 'discount', 'ntrend']
+        error_message = ("Missing elements in polynomial model: " +
+                         str(missing_keys))
+
+        with self.assertRaises(ValueError) as context:
+            BayesianDynamicModel(model_dict=model_dict)
+
+        actual_error_message = str(context.exception)
+        self.assertEqual(actual_error_message.strip(), error_message.strip())
+
+    def test__invalid_model_dict_nregn_discount_W_missing(self):
+        """Test incorrect model dict missing nregn, discount, W arguments."""
+        model_dict = {
+            "polynomial": {
+                "m0": np.array([10]),
+                "C0": np.array([[9]]),
+                "ntrend": 1,
+                "discount": 1,
+            },
+            "regression": {
+                "m0": np.array([0, 0]),
+                "C0": np.identity(2) * 9
+            }
+        }
+
+        missing_keys = ['W', 'discount', 'nregn']
+        error_message = ("Missing elements in regression model: " +
+                         str(missing_keys))
+
+        with self.assertRaises(ValueError) as context:
+            BayesianDynamicModel(model_dict=model_dict)
+
+        actual_error_message = str(context.exception)
+        self.assertEqual(actual_error_message.strip(), error_message.strip())
+
+    def test__invalid_model_dict_discount_shape_polynomial(self):
+        """Test discount shape in polynomial."""
+        model_dict = {
+            "polynomial": {
+                "m0": np.array([10]),
+                "C0": np.array([[9]]),
+                "ntrend": 1,
+                "discount": np.array([1, 2]),
+            },
+            "regression": {
+                "m0": np.array([0, 0]),
+                "C0": np.identity(2) * 9,
+                "nregn": 2,
+                "discount": 1
+            }
+        }
+
+        error_message = "Discount for polynomial model is not a scalar"
+
+        with self.assertRaises(ValueError) as context:
+            BayesianDynamicModel(model_dict=model_dict)
+
+        actual_error_message = str(context.exception)
+        self.assertEqual(actual_error_message.strip(), error_message.strip())
+
+    def test__invalid_model_dict_discount_shape_regression(self):
+        """Test discount shape for regression model."""
+        model_dict = {
+            "polynomial": {
+                "m0": np.array([10]),
+                "C0": np.array([[9]]),
+                "ntrend": 1,
+                "discount": 1
+            },
+            "regression": {
+                "m0": np.array([0, 0]),
+                "C0": np.identity(2) * 9,
+                "nregn": 2,
+                "discount": np.array([1, 2]),
+            }
+        }
+
+        error_message = "Discount for regression model is not a scalar"
+
+        with self.assertRaises(ValueError) as context:
+            BayesianDynamicModel(model_dict=model_dict)
+
+        actual_error_message = str(context.exception)
+        self.assertEqual(actual_error_message.strip(), error_message.strip())
+
+    def test__invalid_model_dict_discount_values_regression(self):
+        """Test discount values in regression model."""
+        model_dict = {
+            "polynomial": {
+                "m0": np.array([10]),
+                "C0": np.array([[9]]),
+                "ntrend": 1,
+                "discount": 1
+            },
+            "regression": {
+                "m0": np.array([0, 0]),
+                "C0": np.identity(2) * 9,
+                "nregn": 2,
+                "discount": 2,
+            }
+        }
+
+        error_message = ("Discount for regression model" +
+                         " is not in [0,1] interval")
+
+        with self.assertRaises(ValueError) as context:
+            BayesianDynamicModel(model_dict=model_dict)
+
+        actual_error_message = str(context.exception)
+        self.assertEqual(actual_error_message.strip(), error_message.strip())
+
+    def test__with_missing_input(self):
+        """Test a regression model fit with missing input."""
+        model_dict = {
+            "polynomial": {
+                "m0": np.array([10]),
+                "C0": np.array([[9]]),
+                "ntrend": 1,
+                "discount": 1,
+            },
+            "regression": {
+                "m0": np.array([0, 0]),
+                "C0": np.identity(2) * 9,
+                "nregn": 2,
+                "discount": 1
+            }
+        }
+
+        error_message = ("The input X for regression is None or " +
+                         "has an incompatible shape with the " +
+                         "declared nregn.")
+
+        with self.assertRaises(ValueError) as context:
+            BayesianDynamicModel(model_dict=model_dict).fit(y=y, smooth=True)
+
+        actual_error_message = str(context.exception)
+        self.assertEqual(actual_error_message.strip(), error_message.strip())
