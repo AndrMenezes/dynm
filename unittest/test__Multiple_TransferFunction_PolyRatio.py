@@ -186,7 +186,7 @@ class TestMultipleTransferFunctionPolyRatio(unittest.TestCase):
         mod = BayesianDynamicModel(model_dict=model_dict).fit(y=tr__y, X=tr__X)
 
         # Forecasting
-        forecast_results = mod._predict(k=50, X=te__X)
+        forecast_results = mod.predict(k=50, X=te__X)
         forecast_df = forecast_results.get("predictive")
         parameters_df = forecast_results.get("parameters")
 

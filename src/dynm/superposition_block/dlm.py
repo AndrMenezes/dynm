@@ -102,9 +102,9 @@ class DynamicLinearModel():
 
         self._validate_model_dict_cov_matrix()
 
-        self._set_submodels()
+        self._validate_model_dict_discount()
 
-        self._set_gamma_distribution_parameters()
+        self._set_submodels()
 
         self._concatenate_regression_vector()
 
@@ -191,6 +191,32 @@ class DynamicLinearModel():
 
         if self.model_dict.get('seasonal') is not None:
             validation.validate_model_dict_seasonal_covariance_matrix(
+                model_dict=seas_model_dict)
+
+    def _validate_model_dict_discount(self):
+        """
+        Validate discount in the model dictionary.
+
+        Raises
+        ------
+        ValueError
+            If the discount factor is not a scalar or falls
+            outside the [0, 1] interval.
+        """
+        poly_model_dict = self.model_dict.get('polynomial')
+        regn_model_dict = self.model_dict.get('regression')
+        seas_model_dict = self.model_dict.get('seasonal')
+
+        if self.model_dict.get('polynomial') is not None:
+            validation.validate_model_dict_polynomial_discount_array(
+                model_dict=poly_model_dict)
+
+        if self.model_dict.get('regression') is not None:
+            validation.validate_model_dict_regression_discount_array(
+                model_dict=regn_model_dict)
+
+        if self.model_dict.get('seasonal') is not None:
+            validation.validate_model_dict_seasonal_discount_array(
                 model_dict=seas_model_dict)
 
     def _set_submodels(self):

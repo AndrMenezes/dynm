@@ -11,6 +11,7 @@ from dynm.utils.format_input import set_X_dict
 from dynm.sequencial.filter import _foward_filter
 from dynm.sequencial.smooth import _backward_smoother
 from dynm.utils.summary import get_predictive_log_likelihood
+from dynm.utils import validation
 
 
 class BayesianDynamicModel():
@@ -489,7 +490,10 @@ class BayesianDynamicModel():
         Fits the model to the provided data 'y' with optional regressors 'X'
         and returns the fitted model object.
         """
-        # Fit
+        # Validate input
+        validation.validate_input_dict(mod=self, X=X)
+
+        # Analysis
         foward_dict = _foward_filter(mod=self, y=y, X=X, level=level)
         self.dict_filter = copy(foward_dict.get('filter'))
         self.dict_state_params = copy(foward_dict.get('state_params'))
@@ -516,13 +520,19 @@ class BayesianDynamicModel():
         and optional regressors 'X' and returns the predicted values and
         confidence intervals.
         """
+        # Validate input
+        validation.validate_input_dict(mod=self, X=X)
+
+        # Set moments
         copy_mod = copy(self)
         copy_mod.a = copy_mod.m
         copy_mod.R = copy_mod.C
 
+        # Set results dictionary
         dict_state_params = {'a': [], 'R': []}
         dict_kstep_forecast = {'t': [], 'f': [], 'q': []}
 
+        # Set input
         Xt = {'regression': [], 'transfer_function': []}
         copy_X = set_X_dict(mod=copy_mod, nobs=k, X=X)
 

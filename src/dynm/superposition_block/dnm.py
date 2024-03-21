@@ -82,6 +82,8 @@ class DynamicNonLinearModel():
 
         self._validate_model_dict_cov_matrix()
 
+        self._validate_model_dict_discount()
+
         self._set_submodels()
 
         self._set_gamma_distribution_parameters()
@@ -158,6 +160,28 @@ class DynamicNonLinearModel():
             validation.validate_model_dict_autoregressive_covariance_matrix(
                 model_dict=ar_model_dict)
 
+    def _validate_model_dict_discount(self):
+        """
+        Validate discount in the model dictionary.
+
+        Raises
+        ------
+        ValueError
+            If the discount array is incompatible with the model
+            parameters, or if any element in the discount array falls outside
+            the [0, 1] interval.
+        """
+        tf_model_dict = self.model_dict.get('transfer_function')
+        ar_model_dict = self.model_dict.get('autoregressive')
+
+        if tf_model_dict is not None:
+            validation.validate_model_dict_transfer_function_discount_array(
+                model_dict=tf_model_dict)
+
+        if ar_model_dict is not None:
+            validation.validate_model_dict_autoregressive_discount_array(
+                model_dict=ar_model_dict)
+
     def _set_submodels(self):
         """Set submodels based on the model dictionary."""
         if self.model_dict.get('autoregressive') is not None:
@@ -186,6 +210,24 @@ class DynamicNonLinearModel():
 
         self.autoregressive_model = autoregressive
         self.transfer_function_model = transfer_function
+
+    def _set_gamma_distribution_parameters(self):
+        self.n = 1
+        self.t = 0
+
+        if self.V is None:
+            self.d = 1
+            self.s = 1
+            self.estimate_V = True
+        else:
+            self.d = 0
+            self.s = self.V
+            self.estimate_V = False
+
+        if self.autoregressive_model.order > 0:
+            self.v = 0
+        else:
+            self.v = self.s
 
     def _concatenate_regression_vector(self):
         """Concatenate regression vectors."""

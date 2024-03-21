@@ -119,7 +119,7 @@ class TestAutoregressive(unittest.TestCase):
         mod = BayesianDynamicModel(model_dict=model_dict).fit(y=tr__y)
 
         # Forecasting
-        forecast_results = mod._predict(k=50)
+        forecast_results = mod.predict(k=50)
         forecast_df = forecast_results.get("predictive")
         parameters_df = forecast_results.get("parameters")
 
@@ -195,3 +195,62 @@ class TestAutoregressive(unittest.TestCase):
         mse2 = np.mean((fk-y)**2)
 
         self.assertTrue(mse2/mse1 <= 1.0)
+
+    def test__invalid_model_dict_missing_keys(self):
+        """Test incorrect model dict missing arguments."""
+        model_dict = {
+            "autoregressive": {
+                "m0": m0,
+                "C0": C0
+            }
+        }
+
+        missing_keys = ['W', 'discount', 'order']
+        error_message = ("Missing elements in autoregressive model: " +
+                         str(missing_keys))
+
+        with self.assertRaises(ValueError) as context:
+            BayesianDynamicModel(model_dict=model_dict)
+
+        actual_error_message = str(context.exception)
+        self.assertEqual(actual_error_message.strip(), error_message.strip())
+
+    def test__invalid_model_dict_discount_shape(self):
+        """Test discount shape in transfer function model."""
+        model_dict = {
+            "autoregressive": {
+                "m0": m0,
+                "C0": C0,
+                "order": 2,
+                "discount": np.array([1, 1])
+            }
+        }
+
+        error_message = ("Discount array has a length of 2, " +
+                         "but it should have a length of 4")
+
+        with self.assertRaises(ValueError) as context:
+            BayesianDynamicModel(model_dict=model_dict)
+
+        actual_error_message = str(context.exception)
+        self.assertEqual(actual_error_message.strip(), error_message.strip())
+
+    def test__invalid_model_dict_discount_values(self):
+        """Test discount values in autoregressive model."""
+        model_dict = {
+            "autoregressive": {
+                "m0": m0,
+                "C0": C0,
+                "order": 2,
+                "discount": np.array([1, 1, 1, 5])
+            }
+        }
+
+        error_message = ("Some elements in the discount array" +
+                         " falls outside the [0,1] interval")
+
+        with self.assertRaises(ValueError) as context:
+            BayesianDynamicModel(model_dict=model_dict)
+
+        actual_error_message = str(context.exception)
+        self.assertEqual(actual_error_message.strip(), error_message.strip())
